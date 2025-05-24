@@ -1,0 +1,154 @@
+
+{
+  "header": {
+    "reportVersion": 1,
+    "event": "Allocation failed - JavaScript heap out of memory",
+    "trigger": "FatalError",
+    "filename": "report.20200412.174822.4232.0.001.json",
+    "dumpEventTime": "2020-04-12T17:48:22Z",
+    "dumpEventTimeStamp": "1586697502857",
+    "processId": 4232,
+    "cwd": "C:\\Users\\ParsaHassani\\Desktop\\vaje-gun-master",
+    "commandLine": [
+      "C:\\Program Files\\nodejs\\node.exe",
+      "server.js"
+    ],
+    "nodejsVersion": "v12.14.1",
+    "wordSize": 64,
+    "arch": "x64",
+    "platform": "win32",
+    "componentVersions": {
+      "node": "12.14.1",
+      "v8": "7.7.299.13-node.16",
+      "uv": "1.33.1",
+      "zlib": "1.2.11",
+      "brotli": "1.0.7",
+      "ares": "1.15.0",
+      "modules": "72",
+      "nghttp2": "1.40.0",
+      "napi": "5",
+      "llhttp": "2.0.1",
+      "http_parser": "2.8.0",
+      "openssl": "1.1.1d",
+      "cldr": "35.1",
+      "icu": "64.2",
+      "tz": "2019c",
+      "unicode": "12.1"
+    },
+    "release": {
+      "name": "node",
+      "lts": "Erbium",
+      "headersUrl": "https://nodejs.org/download/release/v12.14.1/node-v12.14.1-headers.tar.gz",
+      "sourceUrl": "https://nodejs.org/download/release/v12.14.1/node-v12.14.1.tar.gz",
+      "libUrl": "https://nodejs.org/download/release/v12.14.1/win-x64/node.lib"
+    },
+    "osName": "Windows_NT",
+    "osRelease": "10.0.18362",
+    "osVersion": "Windows 10 Pro",
+    "osMachine": "x86_64",
+    "cpus": [
+      {
+        "model": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz",
+        "speed": 2592,
+        "user": 4042093,
+        "nice": 0,
+        "sys": 2526390,
+        "idle": 130387796,
+        "irq": 355843
+      },
+      {
+        "model": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz",
+        "speed": 2592,
+        "user": 2444406,
+        "nice": 0,
+        "sys": 992187,
+        "idle": 133519437,
+        "irq": 33828
+      },
+      {
+        "model": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz",
+        "speed": 2592,
+        "user": 7778609,
+        "nice": 0,
+        "sys": 2612203,
+        "idle": 126565203,
+        "irq": 44828
+      },
+      {
+        "model": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz",
+        "speed": 2592,
+        "user": 2646109,
+        "nice": 0,
+        "sys": 1271843,
+        "idle": 133038062,
+        "irq": 40031
+      },
+      {
+        "model": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz",
+        "speed": 2592,
+        "user": 6272234,
+        "nice": 0,
+        "sys": 3903359,
+        "idle": 126780421,
+        "irq": 49921
+      },
+      {
+        "model": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz",
+        "speed": 2592,
+        "user": 2245375,
+        "nice": 0,
+        "sys": 1038875,
+        "idle": 133671765,
+        "irq": 19875
+      },
+      {
+        "model": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz",
+        "speed": 2592,
+        "user": 4568609,
+        "nice": 0,
+        "sys": 2000687,
+        "idle": 130386718,
+        "irq": 38468
+      },
+      {
+        "model": "Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz",
+        "speed": 2592,
+        "user": 3165765,
+        "nice": 0,
+        "sys": 1530250,
+        "idle": 132260000,
+        "irq": 21468
+      }
+    ],
+    "networkInterfaces": [
+      {
+        "name": "Ethernet 3",
+        "internal": false,
+        "mac": "1e:36:bb:e0:89:9e",
+        "address": "fe80::9580:92a8:8f4f:70d4",
+        "netmask": "ffff:ffff:ffff:ffff::",
+        "family": "IPv6",
+        "scopeid": 14
+      },
+      {
+        "name": "Ethernet 3",
+        "internal": false,
+        "mac": "1e:36:bb:e0:89:9e",
+        "address": "172.20.10.6",
+        "netmask": "255.255.255.240",
+        "family": "IPv4"
+      },
+      {
+        "name": "Loopback Pseudo-Interface 1",
+        "internal": true,
+        "mac": "00:00:00:00:00:00",
+        "address": "::1",
+        "netmask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+        "family": "IPv6",
+        "scopeid": 0
+      },
+      {
+        "name": "Loopback Pseudo-Interface 1",
+        "internal": true,
+        "mac": "00:00:00:00:00:00",
+        "address": "127.0.0.1",
