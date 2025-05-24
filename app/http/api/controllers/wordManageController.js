@@ -2,8 +2,13 @@ import controller from './controller.js';
 import Word from '../../../models/word.js';
 class wordManageController extends controller {
     async suggestWord(req, res, next) {
-        let search = new RegExp(req.query.string, 'gi');
-        let words = await Word.find({ word: search }).limit(5)
+        let search = new RegExp(`^${req.query.string}`, 'i');
+        let words = await Word.find({
+            $and: [
+                { word: search },
+                { word: { $not: /\s/ } }
+            ]
+        }).limit(10)
         res.status(200).json(words)
     }
 
@@ -19,38 +24,60 @@ class wordManageController extends controller {
         word.delete()
         res.status(200).json()
     }
-    async saveWord(req, res, next) {
-        let fullWord = req.body.word.s;
+    async saveWords(req, res, next) {
+        let newWordParts = req.body.data
+        let wordDetails = []
+        let phonemes = []
+        for (let i = 0; i < newWordParts.length; i++) {
+            // Declare word in database
+            if (newWordParts[i].db) {
+                let word = await Word.findById(newWordParts[i].id)
+                wordDetails = [...wordDetails, ...check.heja]
+                phonemes = [...phonemes, ...check.ava]
+                continue
+            }
+            // Check if word is already in database and not declared
+            let check = await Word.findOne({ fullWord: newWordParts[i].part })
+            if (check) {
+                wordDetails = [...wordDetails, ...check.heja]
+                phonemes = [...phonemes, ...check.ava]
+                continue
+            }
+            let solidWordPart = this.solidWord(newWordParts[i].part)
+            let newWordPart = new Word({
+                fullWord: newWordParts[i].part,
+                word: solidWordPart,
+                heja: newWordParts[i].parts,
+                avaString: newWordParts[i].phonemes.join(","),
+                ava: newWordParts[i].phonemes,
+                hejaCounter: newWordParts[i].phonemes.length
+            })
+            await newWordPart.save();
+            wordDetails = [...wordDetails, ...newWordParts[i].parts]
+            phonemes = [...phonemes, ...newWordParts[i].phonemes]
+        }
+        let fullWord = req.body.s;
         let check = await Word.findOne({ fullWord })
-        if (check) return res.status(409).json('این کلمه در پایگاه داده وجود دارد')
+        if (check) {
+            return res.status(200).json({
+                totalId: check._id
+            })
+        }
+        console.log(wordDetails)
+        console.log(phonemes)
         let word = this.solidWord(fullWord);
-
         let newWord = new Word({
             fullWord,
             word,
-            heja: req.body.word.wordDetails,
-            avaString: req.body.word.phonemes.join(","),
-            ava: req.body.word.phonemes,
-            hejaCounter: req.body.word.phonemes.length
+            heja: wordDetails,
+            avaString: phonemes.join(","),
+            ava: phonemes,
+            hejaCounter: phonemes.length
         })
-        let newWordParts = fullWord.split(' ')
-        for (let i = 0; i < newWordParts.length; i++) {
-            let check = await Word.findOne({ fullWord: newWordParts[i] })
-            if (check) continue
-            let solidWordPart = this.solidWord(newWordParts[i])
-            let newWordPart = new Word({
-                fullWord: newWordParts[i],
-                word: solidWordPart,
-                heja: req.body.word.wordDetailsParts[i],
-                avaString: req.body.word.phonemesParts[i].join(","),
-                ava: req.body.word.phonemesParts[i],
-                hejaCounter: req.body.word.phonemesParts[i].length
-            })
-            await newWordPart.save();
-        }
         await newWord.save();
-        let resMessage = `${word} با موفقیت ذخیره شد` + "\n" + newWordParts.map(part => `${part} با موفقیت ذخیره شد`).join('\n')
-        res.status(200).json(resMessage)
+        res.status(200).json({
+            totalId: newWord._id
+        })
     }
 
     solidWord(s) {
@@ -62,6 +89,7 @@ class wordManageController extends controller {
         let filter = req.query.filter
         let word = await Word.findById(req.query.id)
         let response = await this.ryhmFinding(word, filter)
+        console.log(response)
         res.status(200).json({
             selectedWord: word,
             response
@@ -99,7 +127,7 @@ class wordManageController extends controller {
         let first = []
         let last = []
         let tedadHeja = []
-        let ryhmeAva = []
+        let rhymeAva = []
         let heja = []
         let ids = []
         //Ava ha amadast
@@ -129,7 +157,7 @@ class wordManageController extends controller {
                 if (rhyme) {
 
                     if (!response.includes(words[i].word)) {
-                        ryhmeAva.push(avaa)
+                        rhymeAva.push(avaa)
                         let rest = rhyme.input
                         let ezafeAvval = null
                         let afterRhyme = null
@@ -177,7 +205,7 @@ class wordManageController extends controller {
             ryhmes: response,
             number: tedadHeja,
             fullResponse,
-            ryhmeAva,
+            rhymeAva,
             heja,
             start: first,
             end: last,

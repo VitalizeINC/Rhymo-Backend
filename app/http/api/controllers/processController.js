@@ -1,29 +1,75 @@
 import controller from './controller.js';
-
+import Word from '../../../models/word.js';
 class processController extends controller {
 
     async getWordDetails(req, res, next) {
-        let string = this.stringBootstrap(req.body.string)
-        let wordDetails = this.process(string)
-        let phonemes = this.phoneme(string)
+        let modalTitle = req.body.string
+        let string = this.stringBootstrap(modalTitle)
         let stringParts = string.split(' ')
-        let wordDetailsParts = []
-        let phonemesParts = []
+        let totalParts = []
+        let totalPhonemes = []
+        let result = []
+        let pass = true
         for (let i = 0; i < stringParts.length; i++) {
-            let sPart = this.stringBootstrap(stringParts[i])
-            let processPart = this.process(sPart)
-            let wordDetailsPart = Array.isArray(processPart) ? processPart  : [processPart] 
-            let phonemesPart = this.phoneme(sPart)
-            wordDetailsParts.push(wordDetailsPart)
-            phonemesParts.push(phonemesPart)
+            let schema = {
+                id: "",
+                part: stringParts[i],
+                db: false,
+                parts: [],
+                phonemes: []
+            }
+            let checkInDB = await Word.findOne({ fullWord: stringParts[i] })
+            if (checkInDB) {
+                schema.db = true
+                schema.id = checkInDB._id
+                schema.parts = checkInDB.heja
+                schema.phonemes = checkInDB.ava
+                totalParts = [...totalParts, ...checkInDB.heja]
+                totalPhonemes = [...totalPhonemes, ...checkInDB.ava]
+            } else {
+                pass = false
+                let sPart = this.stringBootstrap(stringParts[i])
+                let processPart = this.process(sPart)
+                let wordDetailsPart = Array.isArray(processPart) ? processPart  : [processPart] 
+                let phonemesPart = this.phoneme(sPart)
+                schema.parts = wordDetailsPart
+                schema.phonemes = phonemesPart
+                totalParts = [...totalParts, ...wordDetailsPart]
+                totalPhonemes = [...totalPhonemes, ...phonemesPart]
+            }
+            result.push(schema)
+        }
+        let totalId = ""
+        if (pass) {
+            let check = await Word.findOne({ fullWord: modalTitle })
+            if (!check) {
+                let word = this.solidWord(modalTitle)
+                let newWord = new Word({
+                    fullWord: modalTitle,
+                    word,
+                    heja: totalParts,
+                    avaString: totalPhonemes.join(","),
+                    ava: totalPhonemes,
+                    hejaCounter: totalPhonemes.length
+                })
+                await newWord.save()
+                totalId = newWord._id
+
+            }else{
+                totalId = check._id
+            }
         }
         return res.status(200).json({
-            wordDetails,
-            phonemes,
-            s: req.body.string,
-            stringParts,
-            wordDetailsParts,
-            phonemesParts
+            // wordDetails,
+            // phonemes,
+            // s: req.body.string,
+            // stringParts,
+            // wordDetailsParts,
+            // phonemesParts
+            modalTitle,
+            result,
+            pass,
+            totalId
         })
     }
     phoneme(s) {
@@ -196,6 +242,11 @@ class processController extends controller {
             //
 
         }
+        return string
+    }
+    solidWord(s) {
+        let string = s.split(String.fromCharCode(1614)).join("").split(String.fromCharCode(1615)).join("")
+            .split(String.fromCharCode(1616)).join("").split(String.fromCharCode(1617)).join("")
         return string
     }
 }

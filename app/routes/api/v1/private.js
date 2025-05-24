@@ -11,7 +11,7 @@ router.get('/checkToken', (req, res) => { res.status(200).json() });
 router.get('/getWord', wordManageController.getWord);
 router.get('/suggestWord', wordManageController.suggestWord);
 router.delete('/removeWord', wordManageController.removeWord);
-router.post('/saveWord', wordManageController.saveWord);
+router.post('/saveWords', wordManageController.saveWords);
 //Proccess
 router.get('/getRhymes', wordManageController.getRhymes);
 router.post('/getWordDetails', processController.getWordDetails);
