@@ -32,8 +32,8 @@ class wordManageController extends controller {
             // Declare word in database
             if (newWordParts[i].db) {
                 let word = await Word.findById(newWordParts[i].id)
-                wordDetails = [...wordDetails, ...check.heja]
-                phonemes = [...phonemes, ...check.ava]
+                wordDetails = [...wordDetails, ...word.heja]
+                phonemes = [...phonemes, ...word.ava]
                 continue
             }
             // Check if word is already in database and not declared
@@ -89,117 +89,77 @@ class wordManageController extends controller {
         let filter = req.query.filter
         let word = await Word.findById(req.query.id)
         let response = await this.ryhmFinding(word, filter)
-        console.log(response)
         res.status(200).json({
-            selectedWord: word,
+            selectedWord: await Word.findById(req.query.id),
             response
         })
     }
     async ryhmFinding(w, f) {
+        let rhymeHeja = 2
         let filterChar = []
         f.split(",").map(x =>
             filterChar.push(`(?=.*${x})`)
         )
         let filterAva = []
         w.ava.map(y =>
-            filterAva.push(`(?=.*${y})`)
+            filterAva.push(`${y}`)
         )
 
         let searchChar = new RegExp(filterChar.join(""), 'gi');
         // let avaString = w.ava.splice(0, 1).join(',')
         console.log(filterChar)
-        let searchAva = new RegExp(filterAva.splice(filterAva.length - 2, filterAva.length - 1).join(""), 'gi');
+        let searchAva = new RegExp(filterAva.splice(filterAva.length - rhymeHeja, filterAva.length - 1).join(","));
         console.log(searchAva)
 
-        let words = await Word.find({ avaString: searchAva, word: searchChar }).select('ava word fullWord heja');
-        let rhymes = []
+        let words = await Word.find({ avaString: searchAva, word: searchChar }).select('ava avaString word fullWord heja hejaCounter');
+       
         let Ids = []
-            // console.log(words)
-        let length = w.ava.length
-        let avas = []
-        let ava = w.ava.join("-")
-        for (var i = 0; i < words.length; i++) {
-            avas.push(words[i].ava.join("-"))
-            Ids.push(words[i]._id)
-        }
         let response = []
         let fullResponse = []
-        let first = []
-        let last = []
+        let highlight = []
         let tedadHeja = []
         let rhymeAva = []
         let heja = []
         let ids = []
-        //Ava ha amadast
-
-        //HamHeja
-        // let pointer = 0;
-        // while (pointer < avas.length) {
-        //     let value = avas.indexOf(ava, pointer)
-        //     value != -1 ? rhymes.push({ 'id': Ids[value], 'hejaCounter': w.hejaCounter }) : pointer = avas.length
-        //     if (value != -1) {
-        //         // avas.splice(value, 1)
-        //         // Ids.splice(value, 1)
-        //         // pointer = value - 1
-        //         pointer = value
-        //     }
-        //     pointer++
-        // }
-
-        //Kamtar 
-        let flag = true
-        var j = 1
-        let avaa = ava.split("-")
-        while (flag) {
-            avaa = avaa.join("-")
-            for (var i = 0; i < avas.length; i++) {
-                let rhyme = avas[i].match(avaa)
-                if (rhyme) {
-
-                    if (!response.includes(words[i].word)) {
-                        rhymeAva.push(avaa)
-                        let rest = rhyme.input
-                        let ezafeAvval = null
-                        let afterRhyme = null
-                            //Ezafe az avallaro bar midarim
-                        if (rhyme.index != 0) {
-                            let preRhyme = rhyme.input
-                            ezafeAvval = preRhyme.slice(0, rhyme.index).split("-")
-                            rest = preRhyme.slice(rhyme.index, rhyme.input.length)
-                            if (ezafeAvval[ezafeAvval.length - 1] == "")
-                                ezafeAvval = ezafeAvval.splice(ezafeAvval.length - 2, 1)
-                        }
-
-                        //Ezafe az akhararo bar midarim
-                        if (avaa != rest) {
-                            let splitedAva = avaa.split("-")
-                            afterRhyme = rest.split("-").slice(splitedAva.length, rest.split("-").length)
-
-                        }
-
-                        response.push(words[i].word);
-                        fullResponse.push(words[i].fullWord)
-                        heja.push(words[i].heja)
-                        ids.push(words[i]._id)
-                        tedadHeja.push(avaa.split("-").length);
-                        ezafeAvval ? first.push(ezafeAvval.length) : first.push(null)
-                        afterRhyme ? last.push(afterRhyme.length) : last.push(null)
-
-                    }
-                }
-
-
+        let avaOfRhyme = w.ava.splice(w.ava.length - rhymeHeja, w.ava.length)
+        for(let i = 0; i < words.length; i++){
+            response.push(words[i].word)
+            fullResponse.push(words[i].fullWord)
+            heja.push(words[i].heja)
+            ids.push(words[i]._id)
+            tedadHeja.push(rhymeHeja)
+            rhymeAva.push(words[i].avaString)
+            // find same ava in word's avaString
+            const startIndex = findSubsequenceIndex(words[i].ava, avaOfRhyme);
+            const lastIndex = startIndex + rhymeHeja
+            // // find ava's heja in word
+            let sentenceFromHejaWithSpace = words[i].heja.slice(startIndex,lastIndex).join(" ")
+            let sentenceFromHejaWithoutSpace = words[i].heja.slice(startIndex,lastIndex).join("")
+            // // find heja index in word
+            let hejaIndexInWord = words[i].fullWord.indexOf(sentenceFromHejaWithoutSpace)
+            let hejaIndexInWordEnd = hejaIndexInWord + sentenceFromHejaWithoutSpace.length - 1
+            if(hejaIndexInWord == -1){
+                hejaIndexInWord = words[i].fullWord.indexOf(sentenceFromHejaWithSpace)
+                hejaIndexInWordEnd = hejaIndexInWord + sentenceFromHejaWithSpace.length - 1
             }
-            avaa = avaa.split("-")
-            avaa = avaa.splice(j, avaa.length)
-            if (avaa.length < 2)
-                flag = false;
-
-            j++
-
-
-
+            highlight.push([hejaIndexInWord,hejaIndexInWordEnd])
+            
         }
+        function findSubsequenceIndex(bigger, smaller) {
+            const len = smaller.length;
+            for (let i = 0; i <= bigger.length - len; i++) {
+              let match = true;
+              for (let j = 0; j < len; j++) {
+                if (bigger[i + j] !== smaller[j]) {
+                  match = false;
+                  break;
+                }
+              }
+              if (match) return i;
+            }
+            return -1;
+          }
+
 
         return {
             ryhmes: response,
@@ -207,9 +167,8 @@ class wordManageController extends controller {
             fullResponse,
             rhymeAva,
             heja,
-            start: first,
-            end: last,
-            ids
+            ids,
+            highlight
 
         }
     }
