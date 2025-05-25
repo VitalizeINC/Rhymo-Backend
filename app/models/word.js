@@ -11,6 +11,7 @@ const wordSchema = Schema({
     ava: [{ type: String, required: true }],
     avaString: { type: String, required: true },
     hejaCounter: { type: Number, required: true },
+    spacePositions: [{ type: Number, required: true }],
 }, { timestamps: true, toJSON: { virtuals: true } });
 
 wordSchema.plugin(mongoosePaginate);

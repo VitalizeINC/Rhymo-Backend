@@ -57,6 +57,12 @@ class wordManageController extends controller {
             phonemes = [...phonemes, ...newWordParts[i].phonemes]
         }
         let fullWord = req.body.s;
+        let spacePositions = []
+        for(let i = 0; i < fullWord.length; i++){
+            if(fullWord[i] == " "){
+                spacePositions.push(i)
+            }
+        }
         let check = await Word.findOne({ fullWord })
         if (check) {
             return res.status(200).json({
@@ -71,6 +77,7 @@ class wordManageController extends controller {
             word,
             heja: wordDetails,
             avaString: phonemes.join(","),
+            spacePositions: spacePositions,
             ava: phonemes,
             hejaCounter: phonemes.length
         })
@@ -85,17 +92,41 @@ class wordManageController extends controller {
             .split(String.fromCharCode(1616)).join("").split(String.fromCharCode(1617)).join("")
         return string
     }
+    async getPartsNumber(req, res, next) {
+        let filter = req.query.filter
+        let id = req.query.id
+        let mainWord = await Word.findById(id)
+        let result = []
+        let mostHejaRhyme = {}
+        // Reverse loop from most heja to least heja
+        for(let i = mainWord.hejaCounter; i > 1; i--){
+           
+            let word = await Word.findById(id)
+            let response = await this.ryhmFinding(word, filter, i)
+            if (i == mainWord.hejaCounter - 1) {
+                mostHejaRhyme = response
+            }
+            
+            response?.rhymes?.length > 0 ? result.push(i) : null
+        }
+
+        res.status(200).json({
+            numbers: result,
+            selectedWord: mainWord,
+            mostHejaRhyme: mostHejaRhyme
+
+        })
+    }
     async getRhymes(req, res, next) {
         let filter = req.query.filter
         let word = await Word.findById(req.query.id)
-        let response = await this.ryhmFinding(word, filter)
-        res.status(200).json({
-            selectedWord: await Word.findById(req.query.id),
-            response
-        })
+        let partsNumber = req.query.partsNumber || 2
+        console.log(partsNumber)
+        let response = await this.ryhmFinding(word, filter, partsNumber)
+        res.status(200).json(response)
     }
-    async ryhmFinding(w, f) {
-        let rhymeHeja = 2
+    async ryhmFinding(w, f, n) {
+        let rhymeHeja = n
         let filterChar = []
         f.split(",").map(x =>
             filterChar.push(`(?=.*${x})`)
@@ -104,20 +135,30 @@ class wordManageController extends controller {
         w.ava.map(y =>
             filterAva.push(`${y}`)
         )
+        let backupFilterAva = Object.assign([], filterAva)
 
         let searchChar = new RegExp(filterChar.join(""), 'gi');
         // let avaString = w.ava.splice(0, 1).join(',')
         console.log(filterChar)
         let searchAva = new RegExp(filterAva.splice(filterAva.length - rhymeHeja, filterAva.length - 1).join(","));
         console.log(searchAva)
-
-        let words = await Word.find({ avaString: searchAva, word: searchChar }).select('ava avaString word fullWord heja hejaCounter');
-       
-        let Ids = []
+        let words = await Word.find({ avaString: searchAva, word: searchChar }).select('ava avaString word spacePositions fullWord heja hejaCounter');
+        // Remove words with more than rhymeHeja from result
+        for(let i = rhymeHeja; i < backupFilterAva.length; i++){
+            let newFilterAva = Object.assign([], backupFilterAva)
+            let newSearchAva = new RegExp(newFilterAva.splice( newFilterAva.length - (i + 1) , newFilterAva.length ).join(","));
+            // console.log("newSearchAva", newSearchAva)
+            let removeList = await Word.find({ avaString: newSearchAva, word: searchChar }).select('ava avaString word spacePositions fullWord heja hejaCounter');
+            for(let j = 0; j < removeList.length; j++){
+                words = words.filter(word => {
+                    return word.id !== removeList[j].id
+                })
+            }
+        }
+        
         let response = []
         let fullResponse = []
         let highlight = []
-        let tedadHeja = []
         let rhymeAva = []
         let heja = []
         let ids = []
@@ -127,21 +168,36 @@ class wordManageController extends controller {
             fullResponse.push(words[i].fullWord)
             heja.push(words[i].heja)
             ids.push(words[i]._id)
-            tedadHeja.push(rhymeHeja)
             rhymeAva.push(words[i].avaString)
             // find same ava in word's avaString
             const startIndex = findSubsequenceIndex(words[i].ava, avaOfRhyme);
-            const lastIndex = startIndex + rhymeHeja
+            const lastIndex = startIndex + rhymeHeja + 1
             // // find ava's heja in word
-            let sentenceFromHejaWithSpace = words[i].heja.slice(startIndex,lastIndex).join(" ")
-            let sentenceFromHejaWithoutSpace = words[i].heja.slice(startIndex,lastIndex).join("")
-            // // find heja index in word
-            let hejaIndexInWord = words[i].fullWord.indexOf(sentenceFromHejaWithoutSpace)
-            let hejaIndexInWordEnd = hejaIndexInWord + sentenceFromHejaWithoutSpace.length - 1
-            if(hejaIndexInWord == -1){
-                hejaIndexInWord = words[i].fullWord.indexOf(sentenceFromHejaWithSpace)
-                hejaIndexInWordEnd = hejaIndexInWord + sentenceFromHejaWithSpace.length - 1
+            let hejaSentence = ""
+            let cursor = 0
+            let spaceCursor = 0
+            let hejaPartSentence = ""
+            while(cursor < words[i].heja.length){
+                if(cursor >= startIndex && cursor <= lastIndex){
+                    hejaPartSentence += words[i].heja[cursor]
+                }
+                hejaSentence += words[i].heja[cursor] + " "
+                spaceCursor += words[i].heja[cursor].length
+                cursor++
+                if(words[i].spacePositions.includes(spaceCursor)){
+                    hejaSentence += " "
+                    spaceCursor += 1
+                    if(cursor >= startIndex && cursor <= lastIndex){
+                        hejaPartSentence += " "
+                    }
+                }
             }
+            console.log("hejaPartSentence", hejaPartSentence)
+
+            // // find heja index in word
+            let hejaIndexInWord = words[i].fullWord.indexOf(hejaPartSentence)
+            let hejaIndexInWordEnd = hejaIndexInWord + hejaPartSentence.length - 1
+            
             highlight.push([hejaIndexInWord,hejaIndexInWordEnd])
             
         }
@@ -162,8 +218,7 @@ class wordManageController extends controller {
 
 
         return {
-            ryhmes: response,
-            number: tedadHeja,
+            rhymes: response,
             fullResponse,
             rhymeAva,
             heja,
