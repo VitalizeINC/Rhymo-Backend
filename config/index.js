@@ -11,7 +11,7 @@ export default {
     database,
     port : process.env.APPLICATION_PORT,
     jwt:{
-        secret_key : 'V6v7l6c5f!@#$%^&dkzgmjlakgmjalgmja'
+        secret_key : 'v6v7l6c5f!@#$%^&dkzgmjlakgmjalgmja'
     },
     debug:true
 }
