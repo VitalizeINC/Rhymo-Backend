@@ -43,7 +43,7 @@ export default class Application {
     setupExpress() {
         app.use(cors());
         const server = http.createServer(app);
-        const port = config.port || 3000;
+        const port = config.port || 3500;
         server.listen(port, () => console.log(`Listening on port ${port}`));
     }
 
