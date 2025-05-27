@@ -6,11 +6,13 @@ const wordSchema = Schema({
     user: { type: Schema.Types.ObjectId, ref: 'User' },
     approved: { type: Boolean, default: false, required: true },
     fullWord: { type: String, required: true, unique: true },
+    fullWordWithNimFaseleh: { type: String, required: true },
     word: { type: String, required: true },
     heja: [{ type: String, required: true }],
     ava: [{ type: String, required: true }],
     avaString: { type: String, required: true },
     hejaCounter: { type: Number, required: true },
+    nimFaselehPositions: [{ type: Number, required: true }],
     spacePositions: [{ type: Number, required: true }],
 }, { timestamps: true, toJSON: { virtuals: true } });
 

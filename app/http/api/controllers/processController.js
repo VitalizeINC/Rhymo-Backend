@@ -41,16 +41,34 @@ class processController extends controller {
         }
         let totalId = ""
         if (pass) {
+            let fullWordWithNimFaseleh = modalTitle
+            let fullWord = modalTitle
+            let spacePositions = []
+            for(let i = 0; i < fullWord.length; i++){
+                if(fullWord[i] == " "){
+                    spacePositions.push(i)
+                }
+            }
+            let nimFaselehPositions = []
+            for(let i = 0; i < fullWord.length; i++){
+                if(fullWord[i] == String.fromCharCode(0x200C)){
+                    nimFaselehPositions.push(i)
+                }
+            }
+            fullWord = modalTitle.replace(/\u200C/g, " ")
             let check = await Word.findOne({ fullWord: modalTitle })
             if (!check) {
                 let word = this.solidWord(modalTitle)
                 let newWord = new Word({
                     fullWord: modalTitle,
+                    fullWordWithNimFaseleh: fullWordWithNimFaseleh,
                     word,
                     heja: totalParts,
                     avaString: totalPhonemes.join(","),
                     ava: totalPhonemes,
-                    hejaCounter: totalPhonemes.length
+                    hejaCounter: totalPhonemes.length,
+                    spacePositions: spacePositions,
+                    nimFaselehPositions: nimFaselehPositions
                 })
                 await newWord.save()
                 totalId = newWord._id
@@ -207,10 +225,14 @@ class processController extends controller {
 
     }
     stringBootstrap(string) {
-        //convertA
-        // if (string[0] == 'آ') {
-        //     string = string.replace('آ', 'ا')
-        // }
+        // Check Nim Fasele
+        for (var i = 0; i < string.length; i++) {
+            if (string[i] == String.fromCharCode(0x200C)) {
+                string = string.split("")
+                string[i] = ' '
+                string = string.join("")
+            }
+        }
         //CheckTashdid
         for (var i = 0; i < string.length; i++) {
             if (string[i] == String.fromCharCode(1617)) {
