@@ -134,6 +134,7 @@ class wordManageController extends controller {
             console.log("i", i)
             let word = await Word.findById(id)
             let response = await this.ryhmFinding(word, filter, i)
+            console.log("response", response)
             if (i == mainWord.hejaCounter - 1) {
                 mostHejaRhyme = response
             }
