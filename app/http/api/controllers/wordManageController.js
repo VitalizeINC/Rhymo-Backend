@@ -126,17 +126,16 @@ class wordManageController extends controller {
         let filter = req.query.filter
         let id = req.query.id
         let mainWord = await Word.findById(id)
+        console.log("mainWord", mainWord)
         let result = []
         let mostHejaRhyme = {}
         // Reverse loop from most heja to least heja
         for(let i = mainWord.hejaCounter; i > 1; i--){
-           
             let word = await Word.findById(id)
             let response = await this.ryhmFinding(word, filter, i)
             if (i == mainWord.hejaCounter - 1) {
                 mostHejaRhyme = response
             }
-            
             response?.rhymes?.length > 0 ? result.push(i) : null
         }
 
@@ -151,7 +150,7 @@ class wordManageController extends controller {
         let filter = req.query.filter
         let word = await Word.findById(req.query.id)
         let partsNumber = req.query.partsNumber || 2
-        console.log(partsNumber)
+        console.log("partsNumber", partsNumber)
         let response = await this.ryhmFinding(word, filter, partsNumber)
         res.status(200).json(response)
     }
@@ -176,7 +175,7 @@ class wordManageController extends controller {
         
         let searchAva = new RegExp(avaQuery);
 
-        console.log(searchAva)
+        console.log("searchAva", searchAva)
         let words = await Word.find({ avaString: searchAva, word: searchChar }).select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter');
         // Remove words with more than rhymeHeja from result
         for(let i = rhymeHeja; i < backupFilterAva.length; i++){
