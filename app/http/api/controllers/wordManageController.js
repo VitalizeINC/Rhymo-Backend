@@ -58,7 +58,7 @@ class wordManageController extends controller {
                 }
             }
             fullWord = fullWord.replace(/\u200C/g, " ");
-            console.log(fullWordWithNimFaseleh, "sssssssssssssssss1")
+            // console.log(fullWordWithNimFaseleh, "sssssssssssssssss1")
             let solidWordPart = this.solidWord(newWordParts[i].part)
             let newWordPart = new Word({
                 fullWord: newWordParts[i].part,
@@ -255,7 +255,7 @@ class wordManageController extends controller {
                 hejaSentence += word.heja[cursor] + " "
                 spaceCursor += word.heja[cursor].length
                 cursor++
-                console.log("don't have nimFaseleh", word.fullWord)
+                // console.log("don't have nimFaseleh", word.fullWord)
                 if(word.spacePositions.includes(spaceCursor) || word.nimFaselehPositions.includes(spaceCursor)){
                     hejaSentence += " "
                     spaceCursor += 1
