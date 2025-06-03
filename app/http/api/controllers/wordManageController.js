@@ -191,6 +191,7 @@ class wordManageController extends controller {
                 })
             }
         }
+        console.log("words", words)
         let response = []
         let fullResponse = []
         let highlight = []
