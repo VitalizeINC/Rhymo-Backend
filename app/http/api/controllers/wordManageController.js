@@ -131,6 +131,7 @@ class wordManageController extends controller {
         let mostHejaRhyme = {}
         // Reverse loop from most heja to least heja
         for(let i = mainWord.hejaCounter; i > 1; i--){
+            console.log("i", i)
             let word = await Word.findById(id)
             let response = await this.ryhmFinding(word, filter, i)
             if (i == mainWord.hejaCounter - 1) {
