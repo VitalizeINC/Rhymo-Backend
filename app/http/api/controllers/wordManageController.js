@@ -133,7 +133,7 @@ class wordManageController extends controller {
         for(let i = mainWord.hejaCounter; i > 1; i--){
             console.log("i", i)
             let word = await Word.findById(id)
-            let response = await this.ryhmFinding(word, filter, i)
+            let response = await this.ryhmFinding(word, filter, i+1)
             if (i == mainWord.hejaCounter - 1) {
                 mostHejaRhyme = response
             }
@@ -180,7 +180,7 @@ class wordManageController extends controller {
         let words = await Word.find({ avaString: searchAva, word: searchChar }).select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter');
         // Remove words with more than rhymeHeja from result
         console.log("rhymeHeja", rhymeHeja, backupFilterAva.length)
-        for(let i = rhymeHeja; i <= backupFilterAva.length; i++){
+        for(let i = rhymeHeja; i < backupFilterAva.length; i++){
             let newFilterAva = Object.assign([], backupFilterAva)
             let newSearchAva = new RegExp(newFilterAva.splice( newFilterAva.length - (i + 1) , newFilterAva.length ).join(","));
             // console.log("newSearchAva", newSearchAva)
@@ -191,7 +191,6 @@ class wordManageController extends controller {
                 })
             }
         }
-        console.log("words", words)
         let response = []
         let fullResponse = []
         let highlight = []
