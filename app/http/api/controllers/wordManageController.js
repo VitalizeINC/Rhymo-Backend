@@ -178,7 +178,6 @@ class wordManageController extends controller {
 
         console.log("searchAva", searchAva)
         let words = await Word.find({ avaString: searchAva, word: searchChar }).select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter');
-        console.log("words", words)
         // Remove words with more than rhymeHeja from result
         for(let i = rhymeHeja; i < backupFilterAva.length; i++){
             let newFilterAva = Object.assign([], backupFilterAva)
@@ -191,7 +190,7 @@ class wordManageController extends controller {
                 })
             }
         }
-        
+        console.log("words", words)
         let response = []
         let fullResponse = []
         let highlight = []
