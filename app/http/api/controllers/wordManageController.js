@@ -1,6 +1,67 @@
 import controller from './controller.js';
 import Word from '../../../models/word.js';
 class wordManageController extends controller {
+    async deleteWord(req, res, next) {
+        let id = req.query.id
+        await Word.deleteOne({_id: id})
+        res.status(200).json("Word deleted successfully")
+    }
+    async updateWordStatus(req, res, next) {
+        let id = req.query.id
+        let approved = req.body.approved
+        await Word.updateOne({_id: id}, {approved: approved, approvedBy: req.body.approvedBy, approvedAt: new Date()})  
+        res.status(200).json("Word status updated successfully")
+    }
+    async updateWord(req, res, next) {
+        let id = req.query.id
+        let word = await Word.findById(id)
+        let check = await Word.find({ fullWordWithNimFaseleh: req.body.fullWord })
+        if(check.length > 1){
+            return res.status(409).json("Word already exists")
+        }
+        let fullWord = req.body.fullWord
+        console.log("Input fullWord:", fullWord)
+        let fullWordWithNimFaseleh = fullWord
+        let spacePositions = []
+        let nimFaselehPositions = []
+        for(let i = 0; i < fullWord.length; i++){
+            if(fullWord[i] == " "){
+                spacePositions.push(i)
+            }
+        }
+        for(let i = 0; i < fullWord.length; i++){
+            if(fullWord[i] == String.fromCharCode(0x200C)){
+                nimFaselehPositions.push(i)
+            }
+        }
+        // replace nimFaseleh with space
+        fullWord = fullWord.replace(/\u200C/g, " ");
+        console.log("Processed fullWord:", fullWord)
+        let updateSchema = {
+            $set: {
+                fullWord: fullWord,
+                fullWordWithNimFaseleh: fullWordWithNimFaseleh,
+                word: this.solidWord(fullWord),
+                spacePositions: spacePositions,
+                nimFaselehPositions: nimFaselehPositions,
+                heja: req.body.heja,
+                ava: req.body.ava,
+                avaString: req.body.ava.join(" - "),
+                hejaCounter: req.body.heja.length
+            }
+        }
+        console.log("updateSchema", updateSchema)
+        try {
+            const result = await Word.updateOne({_id: id}, updateSchema)
+            if (result.modifiedCount === 0) {
+                return res.status(404).json("Word not found or no changes made")
+            }
+            res.status(200).json("Word updated successfully")
+        } catch (error) {
+            console.log("error", error)
+            res.status(500).json({ error: "Word update failed", details: error.message })
+        }
+    }
     async suggestWord(req, res, next) {
         let search = new RegExp(`^${req.query.string}`, 'i');
         let words = await Word.find({
@@ -12,7 +73,7 @@ class wordManageController extends controller {
         res.status(200).json(words)
     }
 
-    async getWord(req, res, next) {
+    async getWords(req, res, next) {
         let page = req.query.page || 1
         let words = await Word.paginate({}, { page, sort: { createdAt: -1 }, limit: 10 })
         res.status(200).json({ words: words })

@@ -1,10 +1,9 @@
 import mongoose from 'mongoose';
 import {Schema} from 'mongoose';
-import mongoosePaginate from 'mongoose-paginate';
+import mongoosePaginate from 'mongoose-paginate-v2';
 
 const wordSchema = Schema({
     user: { type: Schema.Types.ObjectId, ref: 'User' },
-    approved: { type: Boolean, default: false, required: true },
     fullWord: { type: String, required: true, unique: true },
     fullWordWithNimFaseleh: { type: String, required: true },
     word: { type: String, required: true },
@@ -14,7 +13,15 @@ const wordSchema = Schema({
     hejaCounter: { type: Number, required: true },
     nimFaselehPositions: [{ type: Number, required: true }],
     spacePositions: [{ type: Number, required: true }],
-}, { timestamps: true, toJSON: { virtuals: true } });
+    private: { type: Boolean, default: false, required: true },
+    approved: { type: Boolean, default: false, required: true },
+    approvedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    approvedAt: { type: Date, default: null },
+    rejected: { type: Boolean, default: false, required: true },
+    rejectedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    rejectedAt: { type: Date, default: null },
+    rejectedReason: { type: String, default: null },
+}, { timestamps: true, toJSON: { virtuals: true } })
 
 wordSchema.plugin(mongoosePaginate);
 

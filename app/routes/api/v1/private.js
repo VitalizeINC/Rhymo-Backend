@@ -6,12 +6,11 @@ import processController from '../../../http/api/controllers/processController.j
 import wordManageController from '../../../http/api/controllers/wordManageController.js';
 
 router.get('/user', homeController.user);
-router.get('/checkToken', (req, res) => { res.status(200).json() });
 //Word
-router.get('/getWord', wordManageController.getWord);
 router.get('/suggestWord', wordManageController.suggestWord);
 router.delete('/removeWord', wordManageController.removeWord);
 router.post('/saveWords', wordManageController.saveWords);
+
 //Proccess
 router.get('/getRhymes', wordManageController.getRhymes);
 router.get('/getPartsNumber', wordManageController.getPartsNumber);

@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const uniqueString = require('unique-string')
 const Schema = mongoose.Schema
-const mongoosePaginate = require('mongoose-paginate')
+const mongoosePaginate = require('mongoose-paginate-v2')
 const userSchema = Schema({
     name:{type:String , required:true},
     admin:{type:Boolean , default:0},
