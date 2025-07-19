@@ -100,6 +100,7 @@ class processController extends controller {
             if (ph.before == String.fromCharCode(1614) || ph.before == String.fromCharCode(1615) || ph.before == String.fromCharCode(1616)) {
                 MosavetKootah = ph.before
             }
+            if (ph.key == 'ی' && ph.before == 'ی') ph = this.checkChar(s, ph.value + 1)
             checkNotA = Array.isArray(ph.key) ? (ph.key[0] == 'ا' ? ph.key[0] = '' : ph.key[0] = 'ا') : '';
             ph != "" ? (ph.key == String.fromCharCode(1614) && ph.before != 'ا' ? ph.key = 'ا' + String.fromCharCode(1614) : null) : null
             ph != "" ? (ph.key == String.fromCharCode(1615) && ph.before != 'ا' ? ph.key = 'ا' + String.fromCharCode(1615) : null) : null
@@ -108,7 +109,7 @@ class processController extends controller {
             ph != "" ? (ph.key == 'و' && ph.before != 'ا' ? ph.key = 'ا' + (MosavetKootah || '') + 'و' : null) : null
             ph != "" ? (ph.key == 'ا' ? ph.key = 'آ' : null) : null
             ph ? (ph.before == 'ا' ? phonemes.push(ph.before + checkNotA + ph.key) : phonemes.push(ph.key)) : null
-
+            console.log(ph)
             value = ph.value
 
             ph = this.checkChar(s, value + 1)
@@ -125,6 +126,7 @@ class processController extends controller {
         let string = s
         let Mosavet1 = this.checkChar(string, 0)
         let Mosavet2 = this.checkChar(string, Mosavet1.value + 1)
+        console.log(Mosavet1, Mosavet2)
         if (!Mosavet2) return string
             //Part 1
         let heja = string.slice(0, Mosavet2.value - 1)
@@ -190,7 +192,9 @@ class processController extends controller {
                 if (this.checkNextChar(string[i + 1], i + 1, string[i])) return this.checkNextChar(string[i + 1], i + 1, string[i]);
                 else return { key: 'ا', value: i }
             if (string[i] == 'ی')
-                if (this.checkNextChar(string[i + 1], i + 1, string[i])) return this.checkNextChar(string[i + 1], i + 1, string[i]);
+                if (string[i - 1] == String.fromCharCode(1618)) return this.checkNextChar(string[i + 1], i + 1, string[i])
+                else if (string[i + 1] == String.fromCharCode(1618)) return this.checkNextChar(string[i + 2], i + 2, string[i])
+                else if (this.checkNextChar(string[i + 1], i + 1, string[i])) return this.checkNextChar(string[i + 1], i + 1, string[i]);  
                 else return { key: 'ی', value: i }
             if (string[i] == 'و')
                 if (this.checkNextChar(string[i + 1], i + 1, string[i])) return this.checkNextChar(string[i + 1], i + 1, string[i]);
@@ -206,6 +210,7 @@ class processController extends controller {
         return false
     }
     checkNextChar(char, i, before) {
+        console.log(char, i, before)
         if (before == 'ا') {
             if (char == String.fromCharCode(1614)) return { key: String.fromCharCode(1614), value: i, before }
             if (char == String.fromCharCode(1615)) return { key: String.fromCharCode(1615), value: i, before }
@@ -247,22 +252,26 @@ class processController extends controller {
             nextChar = this.checkNextChar(string[i + 1], i + 1, string[i])
                 //Age vav bood badisham check kon 
             nextChar.key == 'و' ? (this.checkNextChar(string[nextChar.value + 1], nextChar.value, nextChar.key) ? nextChar = false : '') : ''
-            if (string[i] == 'ی' && string[i - 1] != 'ا' && i != 0 && string[i - 1] != 'ی' && string[i + 1] != 'ی' && nextChar) {
-                if (string[i - 1] == 'و') {
+            // Ya bade A va Ya
+            console.log(string[i], string[i-1], string[i+1], "Injas")
 
+            if (i != 0 && string[i] == 'ی' && string[i - 1] != 'ا'  && string[i - 2] != 'ی' && string[i - 2] != 'و' && nextChar) {
+                console.log("VAred",string[i])
+                if (string[i - 1] == 'و') {
                     string = string.split("")
-                    string[i] = String.fromCharCode(1618) + 'ی'
+                    string[i] =   String.fromCharCode(1618) + 'ی'
                     string = string.join("")
                     return string
+
                 }
-                string = string.split("")
-                string[i] = 'یْی'
-                string = string.join("")
-                return string
+                else{
+                    string = string.split("")
+                    string[i] =  'ی' + String.fromCharCode(1618)
+                    string = string.join("")
+                    return string
+
+                }
             }
-
-            //
-
         }
         return string
     }
