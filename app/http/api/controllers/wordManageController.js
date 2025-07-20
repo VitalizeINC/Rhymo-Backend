@@ -75,8 +75,10 @@ class wordManageController extends controller {
 
     async getWords(req, res, next) {
         let page = req.query.page || 1
-        let words = await Word.paginate({}, { page, sort: { createdAt: -1 }, limit: 10 })
-        res.status(200).json({ words: words })
+        let approved = req.query.approved == "1" ? true : false
+        let count = await Word.countDocuments({approved: approved})
+        let words = await Word.paginate({approved: approved}, { page, sort: { createdAt: -1 }, limit: 10 })
+        res.status(200).json({ words: words, count: count })
     }
 
     async removeWord(req, res, next) {
@@ -191,14 +193,14 @@ class wordManageController extends controller {
         let result = []
         let mostHejaRhyme = {}
         // Reverse loop from most heja to least heja
-        for(let i = mainWord.hejaCounter; i > 1; i--){
-            console.log("i", i)
+        for(let i = mainWord.hejaCounter - 1; i >= 1; i--){
+            console.log("i", i + 1)
             let word = await Word.findById(id)
             let response = await this.ryhmFinding(word, filter, i+1)
             if (i == mainWord.hejaCounter - 1) {
                 mostHejaRhyme = response
             }
-            response?.rhymes?.length > 0 ? result.push(i) : null
+            response?.rhymes?.length > 0 ? result.push(i+1) : null
         }
 
         res.status(200).json({

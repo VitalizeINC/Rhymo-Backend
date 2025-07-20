@@ -1,7 +1,13 @@
 import controller from './controller.js';
 import Word from '../../../models/word.js';
-class processController extends controller {
 
+const longVowels = ['آ', 'و', 'ی']
+const shortVowels = [String.fromCharCode(1614), String.fromCharCode(1615), String.fromCharCode(1616)]
+
+
+
+class processController extends controller {
+    
     async getWordDetails(req, res, next) {
         let modalTitle = req.body.string
         let string = this.stringBootstrap(modalTitle)
@@ -10,6 +16,7 @@ class processController extends controller {
         let totalPhonemes = []
         let result = []
         let pass = true
+        
         for (let i = 0; i < stringParts.length; i++) {
             let schema = {
                 id: "",
@@ -32,6 +39,11 @@ class processController extends controller {
                 let processPart = this.process(sPart)
                 let wordDetailsPart = Array.isArray(processPart) ? processPart  : [processPart] 
                 let phonemesPart = this.phoneme(sPart)
+                
+                // Replace y and w with real characters
+                wordDetailsPart = wordDetailsPart.map(part => part.replace(/y/g, 'ی').replace(/w/g, 'و'))
+                phonemesPart = phonemesPart.map(phoneme => phoneme.replace(/y/g, 'ی').replace(/w/g, 'و'))
+                
                 schema.parts = wordDetailsPart
                 schema.phonemes = phonemesPart
                 totalParts = [...totalParts, ...wordDetailsPart]
@@ -78,12 +90,6 @@ class processController extends controller {
             }
         }
         return res.status(200).json({
-            // wordDetails,
-            // phonemes,
-            // s: req.body.string,
-            // stringParts,
-            // wordDetailsParts,
-            // phonemesParts
             modalTitle,
             result,
             pass,
@@ -246,33 +252,18 @@ class processController extends controller {
                 string = string.join("")
             }
         }
-        //CheckYa
-        let nextChar
-        for (var i = 0; i < string.length; i++) {
-            nextChar = this.checkNextChar(string[i + 1], i + 1, string[i])
-                //Age vav bood badisham check kon 
-            nextChar.key == 'و' ? (this.checkNextChar(string[nextChar.value + 1], nextChar.value, nextChar.key) ? nextChar = false : '') : ''
-            // Ya bade A va Ya
-            console.log(string[i], string[i-1], string[i+1], "Injas")
-
-            if (i != 0 && string[i] == 'ی' && string[i - 1] != 'ا'  && string[i - 2] != 'ی' && string[i - 2] != 'و' && nextChar) {
-                console.log("VAred",string[i])
-                if (string[i - 1] == 'و') {
-                    string = string.split("")
-                    string[i] =   String.fromCharCode(1618) + 'ی'
-                    string = string.join("")
-                    return string
-
-                }
-                else{
-                    string = string.split("")
-                    string[i] =  'ی' + String.fromCharCode(1618)
-                    string = string.join("")
-                    return string
-
-                }
+        console.log("Before",string)
+        for(let i = 0; i < string.length; i++){
+            //CheckVav is Consonant
+            if(string[i] == 'و'){
+                string = this.checkVav(string)
+            }
+            //CheckYa is Consonant 
+            if(string[i] == 'ی'){
+                string = this.checkYa(string)
             }
         }
+        console.log("After",string)
         return string
     }
     solidWord(s) {
@@ -280,6 +271,53 @@ class processController extends controller {
             .split(String.fromCharCode(1616)).join("").split(String.fromCharCode(1617)).join("")
         return string
     }
+    checkYa = (s) => {
+        let string = s
+        for(let i = 0; i < string.length; i++){
+            if(string[i] == 'ی'){
+                if(i == 0) {
+                    string = string.split("")
+                    string[i] = 'y'
+                    string = string.join("")
+                    continue
+                }
+                let before = string[i-1]
+                const isLongVowel = longVowels.some(vowel => vowel == before)
+                const isShortVowel = shortVowels.some(vowel => vowel == before)
+                console.log(isLongVowel, isShortVowel)
+                if(isLongVowel || isShortVowel){
+                    string = string.split("")
+                    string[i] = 'y'
+                    string = string.join("")
+                }
+            }
+        }
+        return string
+    }
+    
+    checkVav = (s) => {
+        let string = s
+        for(let i = 0; i < string.length; i++){
+            if(string[i] == 'و'){
+            if (i == 0) {
+                string = string.split("")
+                string[i] = 'w'
+                string = string.join("")
+                continue
+            }
+            let before = string[i-1]
+            const isLongVowel = longVowels.some(vowel => vowel == before)
+            const isShortVowel = shortVowels.some(vowel => vowel == before)
+            if(isLongVowel || isShortVowel){
+                string = string.split("")
+                string[i] = 'w'
+                    string = string.join("")
+                }
+            }
+        }
+        return string
+    }
+    
 }
 
 export default new processController();
