@@ -1,7 +1,7 @@
 import controller from './controller.js';
 import Word from '../../../models/word.js';
 
-const longVowels = ['آ', 'و', 'ی']
+const longVowels = ['آ', 'و', 'ی', 'ا']
 const shortVowels = [String.fromCharCode(1614), String.fromCharCode(1615), String.fromCharCode(1616)]
 
 
@@ -41,8 +41,8 @@ class processController extends controller {
                 let phonemesPart = this.phoneme(sPart)
                 
                 // Replace y and w with real characters
-                wordDetailsPart = wordDetailsPart.map(part => part.replace(/y/g, 'ی').replace(/w/g, 'و'))
-                phonemesPart = phonemesPart.map(phoneme => phoneme.replace(/y/g, 'ی').replace(/w/g, 'و'))
+                // wordDetailsPart = wordDetailsPart.map(part => part.replace(/y/g, 'ی').replace(/w/g, 'و'))
+                // phonemesPart = phonemesPart.map(phoneme => phoneme.replace(/y/g, 'ی').replace(/w/g, 'و'))
                 
                 schema.parts = wordDetailsPart
                 schema.phonemes = phonemesPart
@@ -132,7 +132,8 @@ class processController extends controller {
         let string = s
         let Mosavet1 = this.checkChar(string, 0)
         let Mosavet2 = this.checkChar(string, Mosavet1.value + 1)
-        console.log(Mosavet1, Mosavet2)
+        console.log("Mosavet1", Mosavet1)
+        console.log("Mosavet2", Mosavet2)
         if (!Mosavet2) return string
             //Part 1
         let heja = string.slice(0, Mosavet2.value - 1)
@@ -146,12 +147,14 @@ class processController extends controller {
                 heja = 'آ'
             }
         }
+        
         array.push(heja)
 
         //Tekrar
         let pointer = Mosavet1.value
         let lastPointer
         let charAfterMosavet
+        
         while (pointer || pointer == 0) {
             Mosavet1 = this.checkChar(string, pointer)
             Mosavet2 = this.checkChar(string, Mosavet1.value + 1)
@@ -160,7 +163,7 @@ class processController extends controller {
             if (charAfterMosavet == -1) {
                 array[array.length - 1] += string[Mosavet2.value - 2]
             }
-
+            
             heja != "" ? array.push(heja) : null
 
             if (pointer) {
@@ -253,16 +256,8 @@ class processController extends controller {
             }
         }
         console.log("Before",string)
-        for(let i = 0; i < string.length; i++){
-            //CheckVav is Consonant
-            if(string[i] == 'و'){
-                string = this.checkVav(string)
-            }
-            //CheckYa is Consonant 
-            if(string[i] == 'ی'){
-                string = this.checkYa(string)
-            }
-        }
+        string = this.checkYaAndVav(string)
+        
         console.log("After",string)
         return string
     }
@@ -271,9 +266,11 @@ class processController extends controller {
             .split(String.fromCharCode(1616)).join("").split(String.fromCharCode(1617)).join("")
         return string
     }
-    checkYa = (s) => {
+    checkYaAndVav = (s) => {
         let string = s
         for(let i = 0; i < string.length; i++){
+            // Check Ya
+            // اگر ی اول کلمه باشد نقش صامتی دارد
             if(string[i] == 'ی'){
                 if(i == 0) {
                     string = string.split("")
@@ -281,42 +278,68 @@ class processController extends controller {
                     string = string.join("")
                     continue
                 }
+                // اگر ای اول کلمه باشد نقش مصوتی دارد
+                if(i == 1 && string[i-1] == 'ا'){
+                    continue
+                }
                 let before = string[i-1]
                 const isLongVowel = longVowels.some(vowel => vowel == before)
                 const isShortVowel = shortVowels.some(vowel => vowel == before)
-                console.log(isLongVowel, isShortVowel)
+                // before not be short vowel or long vowel: Samet
+                // اگر ی بین یک صامت و یک مصوّت بلند قرار بگیره، معمولاً در آوا به صورت دو واج مجزا ظاهر می‌شه
+                if (!isLongVowel && !isShortVowel){
+                    if (i + 1 < string.length){
+                        let after = string[i+1]
+                        const isAfterLongVowel = longVowels.some(vowel => vowel == after)
+                        if (isAfterLongVowel){
+                            string = string.split("")
+                            string[i] = 'یy'
+                            string = string.join("")
+                        }
+                    }
+
+                }
+                // اگر ی بعد از یک مصوت کوتاه یا بلند باشد نقش صامتی دارد
                 if(isLongVowel || isShortVowel){
                     string = string.split("")
                     string[i] = 'y'
                     string = string.join("")
                 }
             }
-        }
-        return string
-    }
-    
-    checkVav = (s) => {
-        let string = s
-        for(let i = 0; i < string.length; i++){
+            // Check VAV
             if(string[i] == 'و'){
-            if (i == 0) {
-                string = string.split("")
-                string[i] = 'w'
-                string = string.join("")
-                continue
-            }
-            let before = string[i-1]
-            const isLongVowel = longVowels.some(vowel => vowel == before)
-            const isShortVowel = shortVowels.some(vowel => vowel == before)
-            if(isLongVowel || isShortVowel){
-                string = string.split("")
-                string[i] = 'w'
+                // اگر و اول کلمه باشد نقش صامتی دارد
+                if (i == 0) {
+                    string = string.split("")
+                    string[i] = 'w'
                     string = string.join("")
+                    continue
+                }
+                // اگر او اول کلمه باشد نقش مصوتی دارد
+                if(i == 1 && string[i-1] == 'ا'){
+                    continue
+                }
+                let before = string[i-1]
+                const isLongVowel = longVowels.some(vowel => vowel == before)
+                const isShortVowel = shortVowels.some(vowel => vowel == before)
+                // اگر و بعد از یک مصوت کوتاه یا بلند باشد نقش صامتی دارد
+                if(isLongVowel || isShortVowel){
+                    string = string.split("")
+                    string[i] = 'w'
+                        string = string.join("")
                 }
             }
         }
         return string
     }
+    
+    // checkVav = (s) => {
+    //     let string = s
+    //     for(let i = 0; i < string.length; i++){
+            
+    //     }
+    //     return string
+    // }
     
 }
 
