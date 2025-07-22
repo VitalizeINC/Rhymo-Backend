@@ -307,9 +307,11 @@ class processController extends controller {
 
                 }
                 if(!isLongVowel && !isShortVowel && exceptionForYaDuplication){
+                    // اگر قبلی صامت بود ولی ی آخرین حرف بود همون مصوت در نظر بگیر
                     if(i == string.length - 1){
                         continue
                     }
+                    // اگر قبلی صامت بود ولی مصوت قبل صامت قبلی بود ی در نقش صامت میاد
                     if(exceptionForYaDuplication){
                         string = string.split("")
                         string[i] = 'y'

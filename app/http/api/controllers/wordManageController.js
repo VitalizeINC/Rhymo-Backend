@@ -77,7 +77,7 @@ class wordManageController extends controller {
         let page = req.query.page || 1
         let approved = req.query.approved == "1" ? true : false
         let count = await Word.countDocuments({approved: approved})
-        let words = await Word.paginate({approved: approved}, { page, sort: { createdAt: -1 }, limit: 10 })
+        let words = await Word.paginate({approved: approved}, { page, sort: { createdAt: -1 }, limit: 25 })
         res.status(200).json({ words: words, count: count })
     }
 
