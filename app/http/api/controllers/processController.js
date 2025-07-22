@@ -285,9 +285,14 @@ class processController extends controller {
                 let before = string[i-1]
                 const isLongVowel = longVowels.some(vowel => vowel == before)
                 const isShortVowel = shortVowels.some(vowel => vowel == before)
+                let beforeBefore = string.length > 2 ? string[i-2] : null
+                const isBeforeBeforeLongVowel = longVowels.some(vowel => vowel == beforeBefore)
+                const isBeforeBeforeShortVowel = shortVowels.some(vowel => vowel == beforeBefore)
+                const exceptionForYaDuplication = isBeforeBeforeLongVowel || isBeforeBeforeShortVowel
                 // before not be short vowel or long vowel: Samet
                 // اگر ی بین یک صامت و یک مصوّت بلند قرار بگیره، معمولاً در آوا به صورت دو واج مجزا ظاهر می‌شه
-                if (!isLongVowel && !isShortVowel){
+                if (!isLongVowel && !isShortVowel && !exceptionForYaDuplication){
+                    
                     if (i + 1 < string.length){
                         let after = string[i+1]
                         const isAfterLongVowel = longVowels.some(vowel => vowel == after)
