@@ -288,7 +288,9 @@ class processController extends controller {
                 let beforeBefore = string.length > 2 ? string[i-2] : null
                 const isBeforeBeforeLongVowel = longVowels.some(vowel => vowel == beforeBefore)
                 const isBeforeBeforeShortVowel = shortVowels.some(vowel => vowel == beforeBefore)
+                // اگر دو حرف قبل ی مصوت باشد ی تبدیل به دو واج مجزا نمیشه
                 const exceptionForYaDuplication = isBeforeBeforeLongVowel || isBeforeBeforeShortVowel
+                
                 // before not be short vowel or long vowel: Samet
                 // اگر ی بین یک صامت و یک مصوّت بلند قرار بگیره، معمولاً در آوا به صورت دو واج مجزا ظاهر می‌شه
                 if (!isLongVowel && !isShortVowel && !exceptionForYaDuplication){
@@ -303,6 +305,17 @@ class processController extends controller {
                         }
                     }
 
+                }
+                if(!isLongVowel && !isShortVowel && exceptionForYaDuplication){
+                    if(i == string.length - 1){
+                        continue
+                    }
+                    if(exceptionForYaDuplication){
+                        string = string.split("")
+                        string[i] = 'y'
+                        string = string.join("")
+                        continue
+                    }
                 }
                 // اگر ی بعد از یک مصوت کوتاه یا بلند باشد نقش صامتی دارد
                 if(isLongVowel || isShortVowel){
