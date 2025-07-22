@@ -41,8 +41,8 @@ class processController extends controller {
                 let phonemesPart = this.phoneme(sPart)
                 
                 // Replace y and w with real characters
-                // wordDetailsPart = wordDetailsPart.map(part => part.replace(/y/g, 'ی').replace(/w/g, 'و'))
-                // phonemesPart = phonemesPart.map(phoneme => phoneme.replace(/y/g, 'ی').replace(/w/g, 'و'))
+                wordDetailsPart = wordDetailsPart.map(part => part.replace(/y/g, 'ی').replace(/w/g, 'و'))
+                phonemesPart = phonemesPart.map(phoneme => phoneme.replace(/y/g, 'ی').replace(/w/g, 'و'))
                 
                 schema.parts = wordDetailsPart
                 schema.phonemes = phonemesPart
