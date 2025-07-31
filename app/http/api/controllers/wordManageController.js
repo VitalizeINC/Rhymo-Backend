@@ -92,6 +92,8 @@ class wordManageController extends controller {
         let wordDetails = []
         let phonemes = []
         for (let i = 0; i < newWordParts.length; i++) {
+            newWordParts[i].parts = newWordParts[i].parts.map(part => part.replace(/y/g, 'ی').replace(/w/g, 'و'))
+            newWordParts[i].phonemes = newWordParts[i].phonemes.map(phoneme => phoneme.replace(/y/g, 'ی').replace(/w/g, 'و'))
             // Declare word in database
             if (newWordParts[i].db) {
                 let word = await Word.findById(newWordParts[i].id)
@@ -163,6 +165,8 @@ class wordManageController extends controller {
         }
 
         let word = this.solidWord(fullWord);
+        wordDetails = wordDetails.map(part => part.replace(/y/g, 'ی').replace(/w/g, 'و'))
+        phonemes = phonemes.map(phoneme => phoneme.replace(/y/g, 'ی').replace(/w/g, 'و'))
         let newWord = new Word({
             fullWord,
             fullWordWithNimFaseleh,
