@@ -94,6 +94,7 @@ class wordManageController extends controller {
         for (let i = 0; i < newWordParts.length; i++) {
             newWordParts[i].parts = newWordParts[i].parts.map(part => part.replace(/y/g, 'ی').replace(/w/g, 'و'))
             newWordParts[i].phonemes = newWordParts[i].phonemes.map(phoneme => phoneme.replace(/y/g, 'ی').replace(/w/g, 'و'))
+            newWordParts[i].part = newWordParts[i].part.replace(/y/g, 'ی').replace(/w/g, 'و')
             // Declare word in database
             if (newWordParts[i].db) {
                 let word = await Word.findById(newWordParts[i].id)
@@ -140,7 +141,9 @@ class wordManageController extends controller {
             wordDetails = [...wordDetails, ...newWordParts[i].parts]
             phonemes = [...phonemes, ...newWordParts[i].phonemes]
         }
-        let fullWord = req.body.s;
+        wordDetails = wordDetails.map(part => part.replace(/y/g, 'ی').replace(/w/g, 'و'))
+        phonemes = phonemes.map(phoneme => phoneme.replace(/y/g, 'ی').replace(/w/g, 'و'))
+        let fullWord = req.body.s.replace(/y/g, 'ی').replace(/w/g, 'و');
         let fullWordWithNimFaseleh = fullWord;
         let spacePositions = []
         for(let i = 0; i < fullWord.length; i++){
@@ -154,6 +157,7 @@ class wordManageController extends controller {
                 nimFaselehPositions.push(i)
             }
         }
+        
         // replace nimFaseleh with space
         fullWord = fullWord.replace(/\u200C/g, " ");
         // console.log(fullWordWithNimFaseleh, "sssssssssssssssss1")
@@ -165,8 +169,8 @@ class wordManageController extends controller {
         }
 
         let word = this.solidWord(fullWord);
-        wordDetails = wordDetails.map(part => part.replace(/y/g, 'ی').replace(/w/g, 'و'))
-        phonemes = phonemes.map(phoneme => phoneme.replace(/y/g, 'ی').replace(/w/g, 'و'))
+
+
         let newWord = new Word({
             fullWord,
             fullWordWithNimFaseleh,
