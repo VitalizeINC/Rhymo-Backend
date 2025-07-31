@@ -70,6 +70,8 @@ class processController extends controller {
             fullWord = modalTitle.replace(/\u200C/g, " ")
             let check = await Word.findOne({ fullWord: modalTitle })
             if (!check) {
+                totalParts = totalParts.map(part => part.replace(/y/g, 'ی').replace(/w/g, 'و'))
+                totalPhonemes = totalPhonemes.map(phoneme => phoneme.replace(/y/g, 'ی').replace(/w/g, 'و'))
                 let word = this.solidWord(modalTitle)
                 let newWord = new Word({
                     fullWord: modalTitle,
