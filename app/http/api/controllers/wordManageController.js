@@ -74,10 +74,11 @@ class wordManageController extends controller {
     }
 
     async getWords(req, res, next) {
+        let search = req.query.search || ""
         let page = req.query.page || 1
         let approved = req.query.approved == "1" ? true : false
         let count = await Word.countDocuments({approved: approved})
-        let words = await Word.paginate({approved: approved}, { page, sort: { createdAt: -1 }, limit: 25 })
+        let words = await Word.paginate({approved: approved, fullWord: new RegExp(search, 'i')}, { page, sort: { createdAt: -1 }, limit: 25 })
         res.status(200).json({ words: words, count: count })
     }
 
