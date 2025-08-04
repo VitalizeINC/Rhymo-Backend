@@ -10,7 +10,8 @@ class processController extends controller {
     
     async getWordDetails(req, res, next) {
         let modalTitle = req.body.string
-        let [string, tashdid] = this.stringBootstrap(modalTitle)
+        // let {string, tashdid} = this.stringBootstrap(modalTitle)
+        let string = modalTitle
         let stringParts = string.split(' ')
         let totalParts = []
         let totalPhonemes = []
@@ -34,18 +35,15 @@ class processController extends controller {
                 totalParts = [...totalParts, ...checkInDB.heja]
                 totalPhonemes = [...totalPhonemes, ...checkInDB.ava]
             } else {
+                console.log("Not in DB")
                 pass = false
-                let [sPart, tashdidPart] = this.stringBootstrap(stringParts[i])
+                let {string: sPart, tashdid: tashdidPart} = this.stringBootstrap(stringParts[i])
                 let processPart = this.process(sPart)
                 let wordDetailsPart = Array.isArray(processPart) ? processPart  : [processPart] 
                 let phonemesPart = this.phoneme(sPart)
-                if (tashdidPart != -1) {
-                    phonemesPart[tashdidPart] = String.fromCharCode(1617)
-                }
                 // Replace y and w with real characters
                 wordDetailsPart = wordDetailsPart.map(part => part.replace(/y/g, 'ی').replace(/w/g, 'و'))
                 phonemesPart = phonemesPart.map(phoneme => phoneme.replace(/y/g, 'ی').replace(/w/g, 'و'))
-                
                 schema.parts = wordDetailsPart
                 schema.phonemes = phonemesPart
                 totalParts = [...totalParts, ...wordDetailsPart]
@@ -72,6 +70,7 @@ class processController extends controller {
             fullWord = modalTitle.replace(/\u200C/g, " ")
             let check = await Word.findOne({ fullWord: modalTitle })
             if (!check) {
+                
                 let word = this.solidWord(modalTitle)
                 let newWord = new Word({
                     fullWord: modalTitle,
@@ -264,7 +263,11 @@ class processController extends controller {
         string = this.checkYaAndVav(string)
         
         console.log("After",string)
-        return string, tashdid
+
+        return {
+            string,
+            tashdid
+        }
     }
     solidWord(s) {
         let string = s.split(String.fromCharCode(1614)).join("").split(String.fromCharCode(1615)).join("")
