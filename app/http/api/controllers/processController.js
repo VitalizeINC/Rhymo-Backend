@@ -10,7 +10,7 @@ class processController extends controller {
     
     async getWordDetails(req, res, next) {
         let modalTitle = req.body.string
-        let string = this.stringBootstrap(modalTitle)
+        let [string, tashdid] = this.stringBootstrap(modalTitle)
         let stringParts = string.split(' ')
         let totalParts = []
         let totalPhonemes = []
@@ -35,11 +35,13 @@ class processController extends controller {
                 totalPhonemes = [...totalPhonemes, ...checkInDB.ava]
             } else {
                 pass = false
-                let sPart = this.stringBootstrap(stringParts[i])
+                let [sPart, tashdidPart] = this.stringBootstrap(stringParts[i])
                 let processPart = this.process(sPart)
                 let wordDetailsPart = Array.isArray(processPart) ? processPart  : [processPart] 
                 let phonemesPart = this.phoneme(sPart)
-                
+                if (tashdidPart != -1) {
+                    phonemesPart[tashdidPart] = String.fromCharCode(1617)
+                }
                 // Replace y and w with real characters
                 wordDetailsPart = wordDetailsPart.map(part => part.replace(/y/g, 'ی').replace(/w/g, 'و'))
                 phonemesPart = phonemesPart.map(phoneme => phoneme.replace(/y/g, 'ی').replace(/w/g, 'و'))
@@ -239,6 +241,7 @@ class processController extends controller {
 
     }
     stringBootstrap(string) {
+        
         // Check Nim Fasele
         for (var i = 0; i < string.length; i++) {
             if (string[i] == String.fromCharCode(0x200C)) {
@@ -248,18 +251,20 @@ class processController extends controller {
             }
         }
         //CheckTashdid
+        let tashdid = -1
         for (var i = 0; i < string.length; i++) {
             if (string[i] == String.fromCharCode(1617)) {
                 string = string.split("")
                 string[i] = string[i - 1]
                 string = string.join("")
+                tashdid = i
             }
         }
         console.log("Before",string)
         string = this.checkYaAndVav(string)
         
         console.log("After",string)
-        return string
+        return string, tashdid
     }
     solidWord(s) {
         let string = s.split(String.fromCharCode(1614)).join("").split(String.fromCharCode(1615)).join("")

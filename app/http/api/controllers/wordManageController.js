@@ -161,7 +161,6 @@ class wordManageController extends controller {
         
         // replace nimFaseleh with space
         fullWord = fullWord.replace(/\u200C/g, " ");
-        // console.log(fullWordWithNimFaseleh, "sssssssssssssssss1")
         let check = await Word.findOne({ fullWord })
         if (check) {
             return res.status(200).json({
@@ -198,6 +197,7 @@ class wordManageController extends controller {
         let filter = req.query.filter
         let id = req.query.id
         let mainWord = await Word.findById(id)
+        let partsSkip = req.query.partsSkip || 0
         console.log("mainWord", mainWord)
         let result = []
         let mostHejaRhyme = {}
@@ -205,7 +205,7 @@ class wordManageController extends controller {
         for(let i = mainWord.hejaCounter - 1; i >= 1; i--){
             console.log("i", i + 1)
             let word = await Word.findById(id)
-            let response = await this.ryhmFinding(word, filter, i+1)
+            let response = await this.ryhmFinding(word, filter, i+1, partsSkip)
             if (i == mainWord.hejaCounter - 1) {
                 mostHejaRhyme = response
             }
@@ -223,11 +223,13 @@ class wordManageController extends controller {
         let filter = req.query.filter
         let word = await Word.findById(req.query.id)
         let partsNumber = req.query.partsNumber || 2
+        let partsSkip = req.query.partsSkip || 0
+
         console.log("partsNumber", partsNumber)
-        let response = await this.ryhmFinding(word, filter, partsNumber)
+        let response = await this.ryhmFinding(word, filter, partsNumber, partsSkip)
         res.status(200).json(response)
     }
-    async ryhmFinding(w, f, n) {
+    async ryhmFinding(w, f, n, s) {
         let rhymeHeja = n
         let filterChar = []
         f.split(",").map(x =>
@@ -237,6 +239,9 @@ class wordManageController extends controller {
         w.ava.map(y =>
             filterAva.push(`${y}`)
         )
+        // Skip from first, if partsSkip is 2, we skip 2 heja from first, if be 0 we don't change anything
+        filterAva = filterAva.slice(0, filterAva.length - s)
+        rhymeHeja = rhymeHeja - s
         console.log("filterAva", filterAva)
         let backupFilterAva = Object.assign([], filterAva)
 
@@ -249,14 +254,17 @@ class wordManageController extends controller {
         let searchAva = new RegExp(avaQuery);
 
         console.log("searchAva", searchAva)
-        let words = await Word.find({ avaString: searchAva, word: searchChar }).select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter');
+        // With removing hejaCounter constraint, we can get words with more than rhymeHeja which has rhyme with main word
+        // for example, 5 heja word which has 2 heja rhyme with our word
+        let words = await Word.find({ avaString: searchAva, word: searchChar, hejaCounter: rhymeHeja }).select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter');
         // Remove words with more than rhymeHeja from result
         console.log("rhymeHeja", rhymeHeja, backupFilterAva.length)
         for(let i = rhymeHeja; i < backupFilterAva.length; i++){
             let newFilterAva = Object.assign([], backupFilterAva)
             let newSearchAva = new RegExp(newFilterAva.splice( newFilterAva.length - (i + 1) , newFilterAva.length ).join(","));
             // console.log("newSearchAva", newSearchAva)
-            let removeList = await Word.find({ avaString: newSearchAva, word: searchChar }).select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter');
+            // 
+            let removeList = await Word.find({ avaString: newSearchAva, word: searchChar, hejaCounter: rhymeHeja }).select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter');
             for(let j = 0; j < removeList.length; j++){
                 words = words.filter(word => {
                     return word.id !== removeList[j].id
