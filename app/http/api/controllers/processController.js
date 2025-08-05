@@ -291,8 +291,16 @@ class processController extends controller {
                     continue
                 }
                 let before = string[i-1]
+                let after = string[i+1]
                 const isLongVowel = longVowels.some(vowel => vowel == before)
                 const isShortVowel = shortVowels.some(vowel => vowel == before)
+                const isAfterLongVowel = longVowels.some(vowel => vowel == after)
+                const isAfterShortVowel = shortVowels.some(vowel => vowel == after)
+                const isAfterConsonant = !isAfterLongVowel && !isAfterShortVowel
+                const isBeforeConsonant = !isLongVowel && !isShortVowel
+                if(isBeforeConsonant && isAfterConsonant){
+                    continue
+                }
                 let beforeBefore = string.length > 2 ? string[i-2] : null
                 const isBeforeBeforeLongVowel = longVowels.some(vowel => vowel == beforeBefore)
                 const isBeforeBeforeShortVowel = shortVowels.some(vowel => vowel == beforeBefore)
@@ -348,9 +356,19 @@ class processController extends controller {
                     continue
                 }
                 let before = string[i-1]
+                let after = string[i+1]
+                let afterAfter = string.length > 3 ? string[i+2] : null
                 const isLongVowel = longVowels.some(vowel => vowel == before)
                 const isShortVowel = shortVowels.some(vowel => vowel == before)
-                // اگر و بعد از یک مصوت کوتاه یا بلند باشد نقش صامتی دارد
+                const isAfterAfterLongVowel = longVowels.some(vowel => vowel == afterAfter)
+                const isAfterAfterShortVowel = shortVowels.some(vowel => vowel == afterAfter)
+                // اگر بعد و رسیدیم به ی باید بعدیش دوتا بعدیش رو هم چک کنیم اگه صامت بود نقش و صامت میشه
+                if(after == 'ی' && (!isAfterAfterLongVowel && !isAfterAfterShortVowel)){
+                    string = string.split("")
+                    string[i] = 'w'
+                    string = string.join("")
+                    continue
+                }
                 if(isLongVowel || isShortVowel){
                     string = string.split("")
                     string[i] = 'w'
