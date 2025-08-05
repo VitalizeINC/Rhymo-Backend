@@ -207,16 +207,22 @@ class wordManageController extends controller {
         let result = []
         let mostHejaRhyme = {}
         // Reverse loop from most heja to least heja
-        for(let i = partsNumber - 1; i >= 1; i--){
+        for(let i = partsNumber - partsSkip - 1; i >= 1; i--){
             console.log("i", i + 1)
             let word = await Word.findById(id)
             let response = await this.ryhmFinding(word, filter, i+1, partsSkip)
-            if (i == partsNumber - 1) {
+            if (i == partsNumber - partsSkip  - 1) {
                 mostHejaRhyme = response
             }
-            response?.rhymes?.length > 0 ? result.push(i+1) : null
+            console.log("response", response)
+            response?.rhymes?.length > 0 ? result.push(i-partsSkip+1) : null
         }
         
+        let maxParts = partsNumber - partsSkip
+        // remove from result if result is greater than maxParts
+        result = result.filter(x => x <= maxParts)
+        // remove "1" from result 1 is be there
+        result = result.filter(x => x != 1)
 
         res.status(200).json({
             numbers: result,
