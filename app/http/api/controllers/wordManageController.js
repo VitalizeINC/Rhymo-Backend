@@ -233,8 +233,9 @@ class wordManageController extends controller {
         let filter = req.query.filter
         let id = req.query.id
         let initWord = await Word.findById(id)
-        let partsNumber = req.query.partsNumber || initWord.hejaCounter
-        let partsSkip = req.query.partsSkip || 0
+        let partsNumber = parseInt(req.query.partsNumber) || initWord.hejaCounter
+        if(partsNumber == -1) partsNumber = initWord.hejaCounter
+        let partsSkip = parseInt(req.query.partsSkip) || 0
         let mainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
         console.log("mainWord", mainWord)
         let result = []
@@ -260,8 +261,9 @@ class wordManageController extends controller {
         let filter = req.query.filter
         let id = req.query.id
         let initWord = await Word.findById(id)
-        let partsNumber = req.query.partsNumber || initWord.hejaCounter
-        let partsSkip = req.query.partsSkip || 0
+        let partsNumber = parseInt(req.query.partsNumber) || initWord.hejaCounter
+        if(partsNumber == -1) partsNumber = initWord.hejaCounter
+        let partsSkip = parseInt(req.query.partsSkip) || 0
         let mainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
         let response = await this.ryhmFinding(mainWord, filter, partsNumber - partsSkip)
         res.status(200).json(response)
