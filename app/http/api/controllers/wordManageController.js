@@ -252,7 +252,7 @@ class wordManageController extends controller {
 
         res.status(200).json({
             numbers: result,
-            selectedWord: mainWord,
+            selectedWord: initWord,
             mostHejaRhyme: mostHejaRhyme
 
         })
