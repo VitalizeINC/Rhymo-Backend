@@ -197,21 +197,26 @@ class wordManageController extends controller {
         let filter = req.query.filter
         let id = req.query.id
         let mainWord = await Word.findById(id)
-        let partsSkip = req.query.partsSkip || 0
-        let partsNumber = req.query.partsNumber || mainWord.hejaCounter - 1
-        console.log("mainWord", mainWord)
+        let partsSkip = parseInt(req.query.partsSkip) || 0
+        let partsNumber = parseInt(req.query.partsNumber) || mainWord.hejaCounter
+        if(partsNumber > mainWord.hejaCounter){
+            return res.status(400).json({
+                error: "Parts number is greater than main word heja counter"
+            })
+        }
         let result = []
         let mostHejaRhyme = {}
         // Reverse loop from most heja to least heja
-        for(let i = partsNumber; i >= 1; i--){
+        for(let i = partsNumber - 1; i >= 1; i--){
             console.log("i", i + 1)
             let word = await Word.findById(id)
             let response = await this.ryhmFinding(word, filter, i+1, partsSkip)
-            if (i == mainWord.hejaCounter - 1) {
+            if (i == partsNumber - 1) {
                 mostHejaRhyme = response
             }
             response?.rhymes?.length > 0 ? result.push(i+1) : null
         }
+        
 
         res.status(200).json({
             numbers: result,
@@ -243,7 +248,7 @@ class wordManageController extends controller {
         // Skip from first, if partsSkip is 2, we skip 2 heja from first, if be 0 we don't change anything
         filterAva = filterAva.slice(0, filterAva.length - s)
         rhymeHeja = rhymeHeja - s
-        console.log("filterAva", filterAva)
+        console.log("filterAva", filterAva, rhymeHeja)
         let backupFilterAva = Object.assign([], filterAva)
 
         let searchChar = new RegExp(filterChar.join(""), 'gi');
@@ -272,6 +277,7 @@ class wordManageController extends controller {
                 })
             }
         }
+
         let response = []
         let fullResponse = []
         let highlight = []
