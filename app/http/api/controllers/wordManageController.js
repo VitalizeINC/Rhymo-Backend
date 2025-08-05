@@ -161,6 +161,7 @@ class wordManageController extends controller {
         
         // replace nimFaseleh with space
         fullWord = fullWord.replace(/\u200C/g, " ");
+        // console.log(fullWordWithNimFaseleh, "sssssssssssssssss1")
         let check = await Word.findOne({ fullWord })
         if (check) {
             return res.status(200).json({
@@ -193,36 +194,60 @@ class wordManageController extends controller {
             .split(String.fromCharCode(1616)).join("").split(String.fromCharCode(1617)).join("")
         return string
     }
+
+    async wordPreProcessing(word, partsNumber, partsSkip) {
+        let heja = []
+        let ava = []
+        let hejaCounter = 0
+        let avaString = ""
+        let spacePositions = []
+        let nimFaselehPositions = []
+        
+        // 1- PartsSkip and partsNumber
+        for(let i = partsSkip; i < partsNumber; i++){
+            heja.push(word.heja[i])
+            ava.push(word.ava[i])
+            spacePositions.push(word.spacePositions[i])
+            avaString += word.ava[i] + ","
+            hejaCounter++
+        }
+        
+
+
+
+        let newWord = {
+            fullWord: word.fullWord,
+            fullWordWithNimFaseleh: word.fullWordWithNimFaseleh,
+            word: word.word,
+            heja,
+            ava: ava,
+            hejaCounter,
+            spacePositions,
+            nimFaselehPositions
+        }
+        return newWord
+    }
+
+
     async getPartsNumber(req, res, next) {
         let filter = req.query.filter
         let id = req.query.id
-        let mainWord = await Word.findById(id)
-        let partsSkip = parseInt(req.query.partsSkip) || 0
-        let partsNumber = parseInt(req.query.partsNumber) || mainWord.hejaCounter
-        if(partsNumber > mainWord.hejaCounter){
-            return res.status(400).json({
-                error: "Parts number is greater than main word heja counter"
-            })
-        }
+        let initWord = await Word.findById(id)
+        let partsNumber = req.query.partsNumber || initWord.hejaCounter
+        let partsSkip = req.query.partsSkip || 0
+        let mainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
+        console.log("mainWord", mainWord)
         let result = []
         let mostHejaRhyme = {}
         // Reverse loop from most heja to least heja
-        for(let i = partsNumber - partsSkip - 1; i >= 1; i--){
+        for(let i = mainWord.hejaCounter - 1; i >= 1; i--){
             console.log("i", i + 1)
-            let word = await Word.findById(id)
-            let response = await this.ryhmFinding(word, filter, i+1, partsSkip)
-            if (i == partsNumber - partsSkip  - 1) {
+            let response = await this.ryhmFinding(mainWord, filter, i+1)
+            if (i == mainWord.hejaCounter - 1) {
                 mostHejaRhyme = response
             }
-            console.log("response", response)
-            response?.rhymes?.length > 0 ? result.push(i-partsSkip+1) : null
+            response?.rhymes?.length > 0 ? result.push(i+1) : null
         }
-        
-        let maxParts = partsNumber - partsSkip
-        // remove from result if result is greater than maxParts
-        result = result.filter(x => x <= maxParts)
-        // remove "1" from result 1 is be there
-        result = result.filter(x => x != 1)
 
         res.status(200).json({
             numbers: result,
@@ -233,15 +258,15 @@ class wordManageController extends controller {
     }
     async getRhymes(req, res, next) {
         let filter = req.query.filter
-        let word = await Word.findById(req.query.id)
-        let partsNumber = req.query.partsNumber || 2
+        let id = req.query.id
+        let initWord = await Word.findById(id)
+        let partsNumber = req.query.partsNumber || initWord.hejaCounter
         let partsSkip = req.query.partsSkip || 0
-
-        console.log("partsNumber", partsNumber)
-        let response = await this.ryhmFinding(word, filter, partsNumber, partsSkip)
+        let mainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
+        let response = await this.ryhmFinding(mainWord, filter, partsNumber - partsSkip)
         res.status(200).json(response)
     }
-    async ryhmFinding(w, f, n, s) {
+    async ryhmFinding(w, f, n) {
         let rhymeHeja = n
         let filterChar = []
         f.split(",").map(x =>
@@ -251,10 +276,7 @@ class wordManageController extends controller {
         w.ava.map(y =>
             filterAva.push(`${y}`)
         )
-        // Skip from first, if partsSkip is 2, we skip 2 heja from first, if be 0 we don't change anything
-        filterAva = filterAva.slice(0, filterAva.length - s)
-        rhymeHeja = rhymeHeja - s
-        console.log("filterAva", filterAva, rhymeHeja)
+        console.log("filterAva", filterAva)
         let backupFilterAva = Object.assign([], filterAva)
 
         let searchChar = new RegExp(filterChar.join(""), 'gi');
@@ -266,8 +288,6 @@ class wordManageController extends controller {
         let searchAva = new RegExp(avaQuery);
 
         console.log("searchAva", searchAva)
-        // With removing hejaCounter constraint, we can get words with more than rhymeHeja which has rhyme with main word
-        // for example, 5 heja word which has 2 heja rhyme with our word
         let words = await Word.find({ avaString: searchAva, word: searchChar, hejaCounter: rhymeHeja }).select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter');
         // Remove words with more than rhymeHeja from result
         console.log("rhymeHeja", rhymeHeja, backupFilterAva.length)
@@ -275,7 +295,6 @@ class wordManageController extends controller {
             let newFilterAva = Object.assign([], backupFilterAva)
             let newSearchAva = new RegExp(newFilterAva.splice( newFilterAva.length - (i + 1) , newFilterAva.length ).join(","));
             // console.log("newSearchAva", newSearchAva)
-            // 
             let removeList = await Word.find({ avaString: newSearchAva, word: searchChar, hejaCounter: rhymeHeja }).select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter');
             for(let j = 0; j < removeList.length; j++){
                 words = words.filter(word => {
@@ -283,7 +302,6 @@ class wordManageController extends controller {
                 })
             }
         }
-
         let response = []
         let fullResponse = []
         let highlight = []
