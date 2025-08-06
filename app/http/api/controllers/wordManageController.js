@@ -202,9 +202,8 @@ class wordManageController extends controller {
         let avaString = ""
         let spacePositions = []
         let nimFaselehPositions = []
-        
-        // 1- PartsSkip and partsNumber
-        for(let i = partsSkip; i < partsNumber; i++){
+        // از اسکیپ برو جلو پارت تا برو جلو
+        for(let i = partsSkip; i < partsNumber + partsSkip; i++){
             heja.push(word.heja[i])
             ava.push(word.ava[i])
             spacePositions.push(word.spacePositions[i])
@@ -236,6 +235,11 @@ class wordManageController extends controller {
         let partsNumber = parseInt(req.query.partsNumber) || initWord.hejaCounter
         if(partsNumber == -1) partsNumber = initWord.hejaCounter
         let partsSkip = parseInt(req.query.partsSkip) || 0
+        if (partsNumber < 2){
+            return res.status(400).json({
+                error: "Parts number must be greater than 1"
+            })
+        }
         let mainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
         console.log("mainWord", mainWord)
         let result = []
@@ -261,11 +265,12 @@ class wordManageController extends controller {
         let filter = req.query.filter
         let id = req.query.id
         let initWord = await Word.findById(id)
+        // از اسکیپ برو جلو پارت تا برو جلو
         let partsNumber = parseInt(req.query.partsNumber) || initWord.hejaCounter
         if(partsNumber == -1) partsNumber = initWord.hejaCounter
         let partsSkip = parseInt(req.query.partsSkip) || 0
         let mainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
-        let response = await this.ryhmFinding(mainWord, filter, partsNumber - partsSkip)
+        let response = await this.ryhmFinding(mainWord, filter, partsNumber)
         res.status(200).json(response)
     }
     async ryhmFinding(w, f, n) {
