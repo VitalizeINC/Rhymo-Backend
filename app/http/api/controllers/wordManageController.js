@@ -245,16 +245,16 @@ class wordManageController extends controller {
                 error: "Parts number must be greater than 1"
             })
         }
-        let mainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
-        console.log("mainWord", mainWord)
+        let beforeMainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
+        console.log("beforeMainWord", beforeMainWord)
         let result = []
         let mostHejaRhyme = {}
         // Reverse loop from most heja to least heja
-        for(let i = mainWord.hejaCounter - 1; i >= 1; i--){
+        for(let i = beforeMainWord.hejaCounter - 1; i >= 1; i--){
             console.log("i", i + 1)
             let mainWord = await this.wordPreProcessing(initWord, i+1, partsSkip)
             let response = await this.ryhmFinding(mainWord, filter, i+1)
-            if (i == mainWord.hejaCounter - 1) {
+            if (i == beforeMainWord.hejaCounter - 1) {
                 mostHejaRhyme = response
             }
             // console.log("response", response)
