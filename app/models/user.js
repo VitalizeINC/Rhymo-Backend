@@ -6,7 +6,6 @@ const mongoosePaginate = require('mongoose-paginate-v2')
 const userSchema = Schema({
     name:{type:String , required:true},
     admin:{type:Boolean , default:0},
-    phoneNumber:{type:String,required:true,unique:true},
     email:{type:String,required:false},
     password:{type:String,required:true},
     learning:[{type:Schema.Types.ObjectId , ref:'Courses'}],
