@@ -16,6 +16,24 @@ Authorization: Bearer <your_jwt_token>
 ### Admin Authentication
 Admin endpoints require special admin credentials. Only users with usernames 'noya' or 'f4ran' can access admin functionality.
 
+### Social Authentication
+The API supports social authentication providers with automatic user creation:
+
+- **Apple Sign-In**: Uses Apple's JWT identity tokens
+- **Google Sign-In**: Coming soon (uses the same modular system)
+
+**User Creation Flow:**
+1. Verify provider token (Apple JWT, Google ID token, etc.)
+2. Extract user information (email, name, provider user ID)
+3. Find existing user by provider-specific identifier
+4. If not found, create new user with safe defaults
+5. Issue JWT token with user ID and provider information
+
+**User Storage:**
+- Social users are stored with `phoneNumber` field as `"<provider>:<providerUserId>"`
+- This satisfies the required/unique constraint while providing stable user identification
+- Email and name are stored when available from the provider
+
 ---
 
 ## Public Endpoints
@@ -50,6 +68,91 @@ Authenticate a user and receive a JWT token.
 ```json
 {}
 ```
+
+### 2. Apple Sign-In
+**POST** `/auth/apple`
+
+Authenticate a user using Apple Sign-In and receive a JWT token.
+
+**Request Body:**
+```json
+{
+  "identityToken": "eyJraWQiOiJVYUlJRlkyZlc0IiwiYWxnIjoiUlMyNTYifQ...",
+  "email": "user@example.com",
+  "fullName": {
+    "familyName": "Doe",
+    "givenName": "John",
+    "middleName": null,
+    "namePrefix": null,
+    "nameSuffix": null,
+    "nickname": null
+  },
+  "realUserStatus": 1,
+  "state": null,
+  "user": "000406.145b5725c1c9486aa0c1d0baa615952b.1639"
+}
+```
+
+**Required Fields:**
+- `identityToken` (string, required): Apple's JWT identity token
+
+**Optional Fields:**
+- `email` (string, optional): User's email address (fallback if not in token)
+
+**Response:**
+```json
+{
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+```
+
+**Error Responses:**
+- `400`: `{ "error": "identityToken is required" }`
+- `401`: `{ "error": "Invalid Apple identity token" }`
+- `401`: `{ "error": "Invalid Apple token (missing subject)" }`
+
+### 3. Token Verification
+**POST** `/auth/token`
+
+Verify a JWT token and get decoded user information.
+
+**Headers:**
+```
+Authorization: Bearer <jwt_token>
+```
+
+**OR Request Body:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**OR Query Parameters:**
+```
+?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Response:**
+```json
+{
+  "data": {
+    "valid": true,
+    "user": {
+      "id": "user_id",
+      "provider": "apple",
+      "iat": 1754672598,
+      "exp": 1754758998
+    }
+  }
+}
+```
+
+**Error Responses:**
+- `400`: `{ "error": "Missing token" }`
+- `401`: `{ "error": "Invalid or expired token" }`
 
 ---
 
@@ -468,6 +571,17 @@ To run the API locally:
 2. Set environment variables (DATABASE_URL, etc.)
 3. Start the server: `npm start`
 4. The API will be available at `http://localhost:3500/api/v1`
+
+### Environment Variables
+
+**Required:**
+- `DATABASE_URL`: MongoDB connection string
+- `APPLICATION_PORT`: Server port (default: 3500)
+
+**Optional:**
+- `APPLE_AUDIENCE`: Comma-separated list of Apple client IDs for audience validation
+  - Example: `host.exp.Exponent,com.yourapp.client`
+  - If not set, audience validation is skipped (less secure but more flexible)
 
 ---
 
