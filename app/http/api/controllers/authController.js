@@ -7,6 +7,7 @@ import User from '../../../models/user.js';
 class authController extends controller {
 
     async appleLogin(req, res, next) {
+        console.log("HERE HERE")
         try {
             console.log(req.body)
             const { identityToken, email: emailFromBody, user: appleOpaqueUser } = req.body.credentials || {};
