@@ -8,7 +8,7 @@ class authController extends controller {
 
     async appleLogin(req, res, next) {
         try {
-            const { identityToken, email: emailFromBody, user: appleOpaqueUser } = req.body || {};
+            const { identityToken, email: emailFromBody, user: appleOpaqueUser } = req.body.credentials || {};
 
             if (!identityToken && !appleOpaqueUser) {
                 return res.status(400).json({ error: 'identityToken or user is required' });
