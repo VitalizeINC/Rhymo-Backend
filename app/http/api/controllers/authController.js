@@ -7,10 +7,8 @@ import User from '../../../models/user.js';
 class authController extends controller {
 
     async appleLogin(req, res, next) {
-        console.log("HERE HERE")
         try {
-            console.log(req.body)
-            const { identityToken, email: emailFromBody, user: appleOpaqueUser } = req.body.credentials || {};
+            const { identityToken, email: emailFromBody, user: appleOpaqueUser } = req.body.credential || {};
 
             if (!identityToken && !appleOpaqueUser) {
                 return res.status(400).json({ error: 'identityToken or user is required' });
