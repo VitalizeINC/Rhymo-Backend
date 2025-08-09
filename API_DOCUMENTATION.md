@@ -30,8 +30,8 @@ The API supports social authentication providers with automatic user creation:
 5. Issue JWT token with user ID and provider information
 
 **User Storage:**
-- Social users are stored with `phoneNumber` field as `"<provider>:<providerUserId>"`
-- This satisfies the required/unique constraint while providing stable user identification
+- Social users are linked via `User.tokens` containing `"<provider>:<providerUserId>"`
+- We also store Apple's opaque `user` value as `"apple:<user>"` when provided on first login
 - Email and name are stored when available from the provider
 
 ---
@@ -94,7 +94,9 @@ Authenticate a user using Apple Sign-In and receive a JWT token.
 ```
 
 **Required Fields:**
-- `identityToken` (string, required): Apple's JWT identity token
+- At least one of:
+  - `identityToken` (string): Apple's JWT identity token (preferred)
+  - `user` (string): Apple's opaque user identifier (only works after first verified login)
 
 **Optional Fields:**
 - `email` (string, optional): User's email address (fallback if not in token)
@@ -109,9 +111,10 @@ Authenticate a user using Apple Sign-In and receive a JWT token.
 ```
 
 **Error Responses:**
-- `400`: `{ "error": "identityToken is required" }`
+- `400`: `{ "error": "identityToken or user is required" }`
 - `401`: `{ "error": "Invalid Apple identity token" }`
 - `401`: `{ "error": "Invalid Apple token (missing subject)" }`
+- `401`: `{ "error": "Unknown Apple user. Please sign in with Apple again." }`
 
 ### 3. Token Verification
 **POST** `/auth/token`

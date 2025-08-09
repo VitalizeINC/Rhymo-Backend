@@ -3,16 +3,15 @@ import jwt from 'jsonwebtoken';
 import config from '../../../../config/index.js';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { findOrCreateUser } from '../services/socialAuthService.js';
+import User from '../../../models/user.js';
 class authController extends controller {
 
     async appleLogin(req, res, next) {
         try {
-            const { identityToken, email: emailFromBody } = req.body || {};
+            const { identityToken, email: emailFromBody, user: appleOpaqueUser } = req.body || {};
 
-            if (!identityToken) {
-                return res.status(400).json({
-                    error: 'identityToken is required',
-                });
+            if (!identityToken && !appleOpaqueUser) {
+                return res.status(400).json({ error: 'identityToken or user is required' });
             }
 
             const appleIssuer = 'https://appleid.apple.com';
@@ -24,32 +23,61 @@ class authController extends controller {
                 ? audienceEnv.split(',').map((s) => s.trim()).filter(Boolean)
                 : undefined;
 
-            const { payload } = await jwtVerify(identityToken, jwks, {
-                issuer: appleIssuer,
-                audience: expectedAudience,
-            });
+            // Case 1: Verify via identityToken (preferred, first-time or regular secure login)
+            if (identityToken) {
+                const { payload } = await jwtVerify(identityToken, jwks, {
+                    issuer: appleIssuer,
+                    audience: expectedAudience,
+                });
 
-            const appleUserId = payload.sub;
-            const email = payload.email || emailFromBody || null;
+                const appleUserId = payload.sub;
+                const email = payload.email || emailFromBody || null;
 
-            if (!appleUserId) {
-                return res.status(401).json({ error: 'Invalid Apple token (missing subject)' });
+                if (!appleUserId) {
+                    return res.status(401).json({ error: 'Invalid Apple token (missing subject)' });
+                }
+
+                const user = await findOrCreateUser({
+                    provider: 'apple',
+                    providerUserId: appleUserId,
+                    email,
+                    name: payload.name || null,
+                });
+
+                // Attach opaque Apple user token for future lightweight logins
+                if (appleOpaqueUser) {
+                    const namespacedToken = `apple:${appleOpaqueUser}`;
+                    await User.findByIdAndUpdate(
+                        user._id,
+                        { $addToSet: { tokens: namespacedToken } },
+                        { new: false }
+                    ).exec();
+                }
+
+                const token = jwt.sign(
+                    { id: String(user._id), provider: 'apple' },
+                    config.jwt.secret_key,
+                    { expiresIn: 60 * 60 * 24 }
+                );
+
+                return res.json({ data: { token } });
             }
 
-            const user = await findOrCreateUser({
-                provider: 'apple',
-                providerUserId: appleUserId,
-                email,
-                name: payload.name || null,
-            });
+            // Case 2: No identityToken, but opaque Apple user id provided → reuse stored mapping
+            if (appleOpaqueUser) {
+                const namespacedToken = `apple:${appleOpaqueUser}`;
+                const user = await User.findOne({ tokens: namespacedToken }).exec();
+                if (!user) {
+                    return res.status(401).json({ error: 'Unknown Apple user. Please sign in with Apple again.' });
+                }
 
-            const token = jwt.sign(
-                { id: String(user._id), provider: 'apple' },
-                config.jwt.secret_key,
-                { expiresIn: 60 * 60 * 24 }
-            );
-
-            return res.json({ data: { token } });
+                const token = jwt.sign(
+                    { id: String(user._id), provider: 'apple' },
+                    config.jwt.secret_key,
+                    { expiresIn: 60 * 60 * 24 }
+                );
+                return res.json({ data: { token } });
+            }
         } catch (err) {
             console.error('Apple login error:', err);
             return res.status(401).json({ error: 'Invalid Apple identity token' });
