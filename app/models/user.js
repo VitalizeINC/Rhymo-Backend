@@ -1,6 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
 import bcrypt from 'bcrypt';
-import uniqueString from 'unique-string';
 import mongoosePaginate from 'mongoose-paginate-v2';
 
 const userSchema = new Schema({
@@ -37,11 +36,7 @@ userSchema.methods.comparePassword = function(password) {
     return bcrypt.compareSync(password, this.password);
 };
 
-userSchema.methods.setRememberToken = function(res) {
-    const token = uniqueString();
-    res.cookie('remember_token', token, { maxAge: 1000 * 60 * 30 * 24 * 90, httpOnly: true, signed: true });
-    this.update({ rememberToken: token }, err => console.log(err));
-};
+
 
 
 
