@@ -85,7 +85,7 @@ pendingUserSchema.methods.generateNewCode = function() {
 // Static method to create pending user
 pendingUserSchema.statics.createPendingUser = async function(email, password, name) {
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const verificationExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const verificationExpires = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes
 
     return await this.create({
         email: email.toLowerCase(),
