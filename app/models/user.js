@@ -4,15 +4,12 @@ import mongoosePaginate from 'mongoose-paginate-v2';
 
 const userSchema = new Schema({
     name: { type: String, required: true },
-    admin: { type: Boolean, default: 0 },
-    email: { type: String, required: false },
+    admin: { type: Boolean, default: false },
+    email: { type: String, required: true, unique: true, lowercase: true },
     password: { type: String, required: true },
     tokens: { type: [String], default: [] },
     rememberToken: { type: String, default: null },
     roles: [{ type: Schema.Types.ObjectId, ref: 'Role' }],
-    emailVerified: { type: Boolean, default: false },
-    emailVerificationCode: { type: String, default: null },
-    emailVerificationExpires: { type: Date, default: null },
     passwordResetCode: { type: String, default: null },
     passwordResetExpires: { type: Date, default: null }
 }, { timestamps: true, toJSON: { virtuals: true } });

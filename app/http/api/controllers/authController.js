@@ -4,6 +4,7 @@ import config from '../../../../config/index.js';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { findOrCreateUser } from '../services/socialAuthService.js';
 import User from '../../../models/user.js';
+import PendingUser from '../../../models/pendingUser.js';
 import emailService from '../../../helpers/emailService.js';
 class authController extends controller {
 
@@ -233,12 +234,12 @@ class authController extends controller {
 
     async register(req, res, next) {
         try {
-            const { email, password } = req.body;
+            const { name, email, password } = req.body;
 
             // Validate input
-            if (!email || !password) {
+            if (!name || !email || !password) {
                 return res.status(400).json({ 
-                    error: 'Email and password are required' 
+                    error: 'Name, email, and password are required' 
                 });
             }
 
@@ -257,7 +258,7 @@ class authController extends controller {
                 });
             }
 
-            // Check if user already exists
+            // Check if verified user already exists
             const existingUser = await User.findOne({ email: email.toLowerCase() });
             if (existingUser) {
                 return res.status(409).json({ 
@@ -265,53 +266,37 @@ class authController extends controller {
                 });
             }
 
-            // Generate 6-digit email verification code
-            const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-            // Create new user
-            const newUser = new User({
-                name: email.split("@")[0],
-                email: email.toLowerCase(),
-                password,
-                emailVerificationCode,
-                emailVerificationExpires: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
-            });
-
-            await newUser.save();
-
-            // Send welcome email and verification email
-            try {
-                await emailService.sendWelcomeEmail(email);
-                await emailService.sendEmailVerification(email, emailVerificationCode);
-            } catch (emailError) {
-                console.error('Email sending failed:', emailError);
-                // Continue with registration even if email fails
+            // Check if pending user exists
+            let pendingUser = await PendingUser.findOne({ email: email.toLowerCase() });
+            
+            if (pendingUser) {
+                // Check if the previous verification code is still valid
+                if (!pendingUser.isExpired()) {
+                    const timeRemaining = Math.ceil((pendingUser.verificationExpires - new Date()) / 1000 / 60);
+                    return res.status(429).json({ 
+                        error: `Please wait ${timeRemaining} minutes before requesting a new verification code` 
+                    });
+                }
+                
+                // Update existing pending user with new verification code
+                await pendingUser.generateNewCode();
+            } else {
+                // Create new pending user
+                pendingUser = await PendingUser.createPendingUser(email, password, name);
             }
 
-            // Generate JWT token
-            const token = jwt.sign(
-                { 
-                    id: String(newUser._id), 
-                    email: newUser.email,
-                    name: newUser.name,
-                    admin: newUser.admin 
-                },
-                config.jwt.secret_key,
-                { expiresIn: 60 * 60 * 24 } // 24 hours
-            );
+            // Send verification email
+            try {
+                await emailService.sendEmailVerification(email, pendingUser.verificationCode, pendingUser.name);
+            } catch (emailError) {
+                console.error('Email sending failed:', emailError);
+                return res.status(500).json({ 
+                    error: 'Failed to send verification email. Please try again later.' 
+                });
+            }
 
-            return res.status(201).json({
-                data: {
-                    token,
-                    user: {
-                        id: newUser._id,
-                        name: newUser.name,
-                        email: newUser.email,
-                        admin: newUser.admin,
-                        emailVerified: newUser.emailVerified
-                    }
-                },
-                message: 'User registered successfully. Please check your email for verification.'
+            return res.status(200).json({
+                message: 'Verification code has been sent to your email. Please check your inbox and verify your email address.'
             });
 
         } catch (err) {
@@ -459,42 +444,74 @@ class authController extends controller {
                 });
             }
 
-            // Find user by email
-            const user = await User.findOne({ email: email.toLowerCase() });
-            if (!user) {
+            // Find pending user by email
+            const pendingUser = await PendingUser.findOne({ email: email.toLowerCase() });
+            if (!pendingUser) {
                 return res.status(404).json({ 
-                    error: 'User not found' 
+                    error: 'No pending registration found for this email' 
                 });
             }
 
-            // Check if email is already verified
-            if (user.emailVerified) {
-                return res.status(400).json({ 
-                    error: 'Email is already verified' 
+            // Check if verification code is valid
+            if (!pendingUser.isValidCode(code)) {
+                // Increment attempts for security
+                await pendingUser.incrementAttempts();
+                
+                if (pendingUser.isExpired()) {
+                    return res.status(401).json({ 
+                        error: 'Verification code has expired' 
+                    });
+                } else {
+                    return res.status(401).json({ 
+                        error: 'Invalid verification code' 
+                    });
+                }
+            }
+
+            // Check if too many attempts
+            if (pendingUser.attempts >= 5) {
+                return res.status(429).json({ 
+                    error: 'Too many failed attempts. Please request a new verification code.' 
                 });
             }
 
-            // Verify code matches stored code and is not expired
-            if (user.emailVerificationCode !== code) {
-                return res.status(401).json({ 
-                    error: 'Invalid verification code' 
-                });
-            }
+            // Create verified user
+            const newUser = new User({
+                name: pendingUser.name,
+                email: pendingUser.email,
+                password: pendingUser.password,
+                emailVerified: true
+            });
 
-            if (user.emailVerificationExpires < new Date()) {
-                return res.status(401).json({ 
-                    error: 'Verification code has expired' 
-                });
-            }
+            await newUser.save();
 
-            // Mark email as verified
-            user.emailVerified = true;
-            user.emailVerificationCode = null;
-            user.emailVerificationExpires = null;
-            await user.save();
+            // Delete pending user
+            await PendingUser.findByIdAndDelete(pendingUser._id);
+
+            // Generate JWT token
+            const token = jwt.sign(
+                { 
+                    id: String(newUser._id), 
+                    email: newUser.email,
+                    name: newUser.name,
+                    admin: newUser.admin 
+                },
+                config.jwt.secret_key,
+                { expiresIn: 60 * 60 * 24 } // 24 hours
+            );
 
             return res.json({
-                message: 'Email verified successfully'
+                data: {
+                    token,
+                    user: {
+                        id: newUser._id,
+                        name: newUser.name,
+                        email: newUser.email,
+                        admin: newUser.admin,
+                        emailVerified: newUser.emailVerified
+                    }
+                },
+                message: 'Email verified successfully. Your account has been created.'
             });
 
         } catch (err) {
@@ -523,45 +540,29 @@ class authController extends controller {
                 });
             }
 
-            // Find user by email
-            const user = await User.findOne({ email: email.toLowerCase() });
-            if (!user) {
+            // Find pending user by email
+            const pendingUser = await PendingUser.findOne({ email: email.toLowerCase() });
+            if (!pendingUser) {
                 // Don't reveal if user exists or not for security
                 return res.json({
                     message: 'If an account with this email exists, a verification code has been sent.'
                 });
             }
 
-            // Check if email is already verified
-            if (user.emailVerified) {
-                return res.status(400).json({ 
-                    error: 'Email is already verified' 
-                });
-            }
-
             // Check if we can send a new verification code (rate limiting)
-            const now = new Date();
-            const lastVerificationSent = user.emailVerificationExpires;
-            
-            // If the last verification code is still valid (not expired), don't send a new one
-            if (lastVerificationSent && lastVerificationSent > now) {
-                const timeRemaining = Math.ceil((lastVerificationSent - now) / 1000 / 60); // minutes
+            if (!pendingUser.isExpired()) {
+                const timeRemaining = Math.ceil((pendingUser.verificationExpires - new Date()) / 1000 / 60); // minutes
                 return res.status(429).json({ 
                     error: `Please wait ${timeRemaining} minutes before requesting a new verification code` 
                 });
             }
 
-            // Generate new 6-digit email verification code
-            const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-            // Update user with new verification code
-            user.emailVerificationCode = emailVerificationCode;
-            user.emailVerificationExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-            await user.save();
+            // Generate new verification code
+            await pendingUser.generateNewCode();
 
             // Send verification email
             try {
-                await emailService.sendEmailVerification(email, emailVerificationCode);
+                await emailService.sendEmailVerification(email, pendingUser.verificationCode, pendingUser.name);
             } catch (emailError) {
                 console.error('Email sending failed:', emailError);
                 return res.status(500).json({ 

@@ -41,34 +41,26 @@ The API supports social authentication providers with automatic user creation:
 ### 1. User Registration
 **POST** `/register`
 
-Register a new user account.
+Start the registration process by sending a verification email.
 
 **Request Body:**
 ```json
 {
+  "name": "string",
   "email": "string",
   "password": "string"
 }
 ```
 
 **Validation Rules:**
+- `name`: Required, string
 - `email`: Required, valid email format
 - `password`: Required, minimum 6 characters
 
 **Response:**
 ```json
 {
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "user": {
-      "id": "user_id",
-      "name": "User Name",
-      "email": "user@example.com",
-      "admin": false,
-      "emailVerified": false
-    }
-  },
-  "message": "User registered successfully. Please check your email for verification."
+  "message": "Verification code has been sent to your email. Please check your inbox and verify your email address."
 }
 ```
 
@@ -77,6 +69,10 @@ Register a new user account.
 - `400`: `{ "error": "Invalid email format" }`
 - `400`: `{ "error": "Password must be at least 6 characters long" }`
 - `409`: `{ "error": "User with this email already exists" }`
+- `429`: `{ "error": "Please wait X minutes before requesting a new verification code" }`
+- `500`: `{ "error": "Failed to send verification email. Please try again later." }`
+
+**Note:** This endpoint only sends a verification email. The user account is created only after email verification is completed.
 
 ### 2. User Login (Email/Password)
 **POST** `/login`
@@ -169,7 +165,7 @@ Reset password using the code sent to email.
 ### 5. Verify Email
 **POST** `/verify-email`
 
-Verify user's email address using the verification code.
+Complete the registration process by verifying the email address and creating the user account.
 
 **Request Body:**
 ```json
@@ -185,17 +181,26 @@ Verify user's email address using the verification code.
 **Response:**
 ```json
 {
-  "message": "Email verified successfully"
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": "user_id",
+      "name": "User Name",
+      "email": "user@example.com",
+      "admin": false
+    }
+  },
+  "message": "Email verified successfully. Your account has been created."
 }
 ```
 
 **Error Responses:**
 - `400`: `{ "error": "Email and verification code are required" }`
 - `400`: `{ "error": "Invalid code format" }`
-- `400`: `{ "error": "Email is already verified" }`
 - `401`: `{ "error": "Invalid verification code" }`
 - `401`: `{ "error": "Verification code has expired" }`
-- `404`: `{ "error": "User not found" }`
+- `404`: `{ "error": "No pending registration found for this email" }`
+- `429`: `{ "error": "Too many failed attempts. Please request a new verification code." }`
 
 ### 6. Resend Verification Email
 **POST** `/resend-verification`
@@ -725,16 +730,29 @@ Authorization: Bearer <admin_jwt_token>
   _id: ObjectId,
   name: String (required),
   admin: Boolean (default: false),
-  email: String (required: false),
+  email: String (required, unique, lowercase),
   password: String (required),
   tokens: [String] (default: []),
   rememberToken: String (default: null),
   roles: [ObjectId] (ref: 'Role'),
-  emailVerified: Boolean (default: false),
-  emailVerificationCode: String (default: null),
-  emailVerificationExpires: Date (default: null),
   passwordResetCode: String (default: null),
   passwordResetExpires: Date (default: null),
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+### PendingUser Model
+```javascript
+{
+  _id: ObjectId,
+  email: String (required, unique, lowercase),
+  password: String (required, hashed),
+  name: String (required),
+  verificationCode: String (required),
+  verificationExpires: Date (required),
+  attempts: Number (default: 0),
+  lastAttemptAt: Date (default: Date.now),
   createdAt: Date,
   updatedAt: Date
 }
@@ -846,8 +864,11 @@ To run the API locally:
 - JWT tokens expire after 24 hours
 - Email verification codes expire after 10 minutes
 - Password reset codes expire after 10 minutes
+- Registration is a two-step process: 1) Send verification email, 2) Verify email to create account
+- Pending registrations are stored separately from verified users
 - Users can request new verification emails if the previous one expires or wasn't received
-- Rate limiting prevents abuse of email verification requests
+- Rate limiting prevents abuse of email verification requests (10-minute cooldown)
+- Maximum 5 failed verification attempts before requiring a new code
 - Word processing includes complex Persian language rules for syllable division
 - The API supports both traditional email/password authentication and modern social authentication
 - Admin functionality is available for word management and approval workflows 
