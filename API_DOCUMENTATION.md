@@ -14,7 +14,7 @@ Authorization: Bearer <your_jwt_token>
 ```
 
 ### Admin Authentication
-Admin endpoints require special admin credentials. Only users with admin privileges can access admin functionality.
+Admin endpoints require special admin credentials. Only users with admin privileges can access admin functionality. Currently hardcoded to specific user IDs: `noya` or `f4ran`.
 
 ### Social Authentication
 The API supports social authentication providers with automatic user creation:
@@ -36,7 +36,7 @@ The API supports social authentication providers with automatic user creation:
 
 ---
 
-## Public Endpoints
+## Public Endpoints (No Authentication Required)
 
 ### 1. User Registration
 **POST** `/register`
@@ -46,14 +46,12 @@ Start the registration process by sending a verification email.
 **Request Body:**
 ```json
 {
-  "name": "string",
   "email": "string",
   "password": "string"
 }
 ```
 
 **Validation Rules:**
-- `name`: Required, string
 - `email`: Required, valid email format
 - `password`: Required, minimum 6 characters
 
@@ -65,14 +63,14 @@ Start the registration process by sending a verification email.
 ```
 
 **Error Responses:**
-- `400`: `{ "error": "Name, email, and password are required" }`
+- `400`: `{ "error": "Email and password are required" }`
 - `400`: `{ "error": "Invalid email format" }`
 - `400`: `{ "error": "Password must be at least 6 characters long" }`
 - `409`: `{ "error": "User with this email already exists" }`
 - `429`: `{ "error": "Please wait X minutes before requesting a new verification code" }`
 - `500`: `{ "error": "Failed to send verification email. Please try again later." }`
 
-**Note:** This endpoint only sends a verification email. The user account is created only after email verification is completed.
+**Note:** This endpoint only sends a verification email. The user account is created only after email verification is completed. The name is automatically generated from the email address (part before @).
 
 ### 2. User Login (Email/Password)
 **POST** `/login`
@@ -284,7 +282,7 @@ Authenticate a user using Apple Sign-In and receive a JWT token.
 - `401`: `{ "error": "Invalid Apple token (missing subject)" }`
 - `401`: `{ "error": "Unknown Apple user. Please sign in with Apple again." }`
 
-### 7. Google Sign-In
+### 8. Google Sign-In
 **POST** `/auth/google`
 
 Authenticate a user using Google Sign-In and receive a JWT token.
@@ -326,7 +324,7 @@ Authenticate a user using Google Sign-In and receive a JWT token.
 - `401`: `{ "error": "Invalid Google token (missing email)" }`
 - `500`: `{ "error": "Google authentication not configured" }`
 
-### 8. Token Verification
+### 9. Token Verification
 **POST** `/auth/token`
 
 Verify a JWT token and get decoded user information.
@@ -370,6 +368,8 @@ Authorization: Bearer <jwt_token>
 ---
 
 ## Private Endpoints (Require Authentication)
+
+**⚠️ IMPORTANT:** Currently, the private endpoints do not have authentication middleware applied. This is a security issue that needs to be addressed. The endpoints are accessible without authentication.
 
 ### 1. Get User Information
 **GET** `/user`
@@ -473,6 +473,8 @@ Authorization: Bearer <jwt_token>
   "totalId": "saved_word_id"
 }
 ```
+
+**Note:** The `s` field contains the full word string, and `data` contains an array of word parts with their syllables and phonemes.
 
 ### 3. Rhyming Process
 
@@ -582,6 +584,8 @@ Authorization: Bearer <jwt_token>
   "totalId": "total_word_id"
 }
 ```
+
+**Note:** The `string` field contains the word to process. The response includes detailed syllable and phoneme analysis for each word part.
 
 ---
 
@@ -722,6 +726,34 @@ Authorization: Bearer <admin_jwt_token>
 
 ---
 
+## Email Service
+
+The API uses SMTP2GO for email delivery with the following configuration:
+
+### Email Templates
+
+1. **Password Reset Email**: Contains a 6-digit verification code
+2. **Email Verification**: Contains a 6-digit verification code  
+3. **Welcome Email**: Simple welcome message without frontend links
+
+### Email Configuration
+
+```javascript
+Sender Email: Rhymo-noreply@vitalize.dev
+API Key: api-92185494F7EF46419713E65A00EE34B9
+API Endpoint: https://api.smtp2go.com/v3/email/send
+```
+
+### Environment Variables
+
+```bash
+SMTP2GO_API_KEY=api-92185494F7EF46419713E65A00EE34B9
+FROM_EMAIL=Rhymo-noreply@vitalize.dev
+FROM_NAME=Rhymo Team
+```
+
+---
+
 ## Data Models
 
 ### User Model
@@ -748,7 +780,7 @@ Authorization: Bearer <admin_jwt_token>
   _id: ObjectId,
   email: String (required, unique, lowercase),
   password: String (required, hashed),
-  name: String (required),
+  name: String (required, auto-generated from email),
   verificationCode: String (required),
   verificationExpires: Date (required),
   attempts: Number (default: 0),
@@ -813,24 +845,21 @@ The API handles Persian text with special considerations:
 
 ---
 
-## Rate Limiting
+## Security Issues & Recommendations
 
-Currently, no rate limiting is implemented. Consider implementing rate limiting for production use.
+### Current Issues
 
----
+1. **Missing Authentication Middleware**: Private endpoints are accessible without authentication
+2. **Hardcoded Admin IDs**: Admin authentication uses hardcoded user IDs (`noya`, `f4ran`)
+3. **No Rate Limiting**: No rate limiting implemented for API endpoints
 
-## CORS
+### Recommendations
 
-CORS is enabled for all origins. Configure appropriately for production.
-
----
-
-## Database
-
-The API uses MongoDB with the following connection:
-- Connection string: `DATABASE_URL` environment variable
-- Database: Configured via environment variables
-- Pagination: Uses `mongoose-paginate-v2` for paginated results
+1. **Implement Authentication Middleware**: Add JWT verification middleware to private routes
+2. **Dynamic Admin System**: Implement proper role-based admin system
+3. **Rate Limiting**: Add rate limiting for all endpoints
+4. **Input Validation**: Add comprehensive input validation
+5. **CORS Configuration**: Configure CORS properly for production
 
 ---
 
@@ -854,6 +883,9 @@ To run the API locally:
   - Example: `host.exp.Exponent,com.yourapp.client`
   - If not set, audience validation is skipped (less secure but more flexible)
 - `GOOGLE_AUTH_CLIENT_ID`: Google OAuth client ID for Google Sign-In validation
+- `SMTP2GO_API_KEY`: SMTP2GO API key for email service
+- `FROM_EMAIL`: Sender email address
+- `FROM_NAME`: Sender name
 
 ---
 
@@ -865,10 +897,12 @@ To run the API locally:
 - Email verification codes expire after 10 minutes
 - Password reset codes expire after 10 minutes
 - Registration is a two-step process: 1) Send verification email, 2) Verify email to create account
+- User names are automatically generated from email addresses (part before @)
 - Pending registrations are stored separately from verified users
 - Users can request new verification emails if the previous one expires or wasn't received
 - Rate limiting prevents abuse of email verification requests (10-minute cooldown)
 - Maximum 5 failed verification attempts before requiring a new code
 - Word processing includes complex Persian language rules for syllable division
 - The API supports both traditional email/password authentication and modern social authentication
-- Admin functionality is available for word management and approval workflows 
+- Admin functionality is available for word management and approval workflows
+- Email service is fully functional with SMTP2GO API integration 
