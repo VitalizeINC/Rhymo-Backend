@@ -9,7 +9,12 @@ const userSchema = new Schema({
     password: { type: String, required: true },
     tokens: { type: [String], default: [] },
     rememberToken: { type: String, default: null },
-    roles: [{ type: Schema.Types.ObjectId, ref: 'Role' }]
+    roles: [{ type: Schema.Types.ObjectId, ref: 'Role' }],
+    emailVerified: { type: Boolean, default: false },
+    emailVerificationCode: { type: String, default: null },
+    emailVerificationExpires: { type: Date, default: null },
+    passwordResetCode: { type: String, default: null },
+    passwordResetExpires: { type: Date, default: null }
 }, { timestamps: true, toJSON: { virtuals: true } });
 
 userSchema.plugin(mongoosePaginate);
@@ -35,10 +40,6 @@ userSchema.pre('findOneAndUpdate', function(next) {
 userSchema.methods.comparePassword = function(password) {
     return bcrypt.compareSync(password, this.password);
 };
-
-
-
-
 
 userSchema.methods.isVip = function() {
     return true;

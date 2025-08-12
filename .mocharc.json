@@ -1,0 +1,10 @@
+{
+  "extension": ["js"],
+  "spec": "test/**/*.test.js",
+  "timeout": 10000,
+  "exit": true,
+  "experimental-modules": true,
+  "node-option": [
+    "experimental-specifier-resolution=node"
+  ]
+}

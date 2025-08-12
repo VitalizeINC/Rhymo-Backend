@@ -13,6 +13,8 @@ import config from '../config/index.js';
 const app = express();
 export default class Application {
     constructor() {
+        this.app = app;
+        this.server = null;
         this.setupExpress();
         this.setConfig();
         this.setRoutes();
@@ -42,9 +44,9 @@ export default class Application {
 
     setupExpress() {
         app.use(cors());
-        const server = http.createServer(app);
+        this.server = http.createServer(app);
         const port = config.port || 3500;
-        server.listen(port, () => console.log(`Listening on port ${port}`));
+        this.server.listen(port, () => console.log(`Listening on port ${port}`));
     }
 
     setConfig() {

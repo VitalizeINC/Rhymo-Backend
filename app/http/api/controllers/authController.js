@@ -4,6 +4,7 @@ import config from '../../../../config/index.js';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { findOrCreateUser } from '../services/socialAuthService.js';
 import User from '../../../models/user.js';
+import emailService from '../../../helpers/emailService.js';
 class authController extends controller {
 
     async appleLogin(req, res, next) {
@@ -264,14 +265,28 @@ class authController extends controller {
                 });
             }
 
+            // Generate 6-digit email verification code
+            const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+
             // Create new user
             const newUser = new User({
                 name,
                 email: email.toLowerCase(),
-                password
+                password,
+                emailVerificationCode,
+                emailVerificationExpires: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
             });
 
             await newUser.save();
+
+            // Send welcome email and verification email
+            try {
+                await emailService.sendWelcomeEmail(email, name);
+                await emailService.sendEmailVerification(email, emailVerificationCode, name);
+            } catch (emailError) {
+                console.error('Email sending failed:', emailError);
+                // Continue with registration even if email fails
+            }
 
             // Generate JWT token
             const token = jwt.sign(
@@ -292,10 +307,11 @@ class authController extends controller {
                         id: newUser._id,
                         name: newUser.name,
                         email: newUser.email,
-                        admin: newUser.admin
+                        admin: newUser.admin,
+                        emailVerified: newUser.emailVerified
                     }
                 },
-                message: 'User registered successfully'
+                message: 'User registered successfully. Please check your email for verification.'
             });
 
         } catch (err) {
@@ -334,32 +350,24 @@ class authController extends controller {
                 });
             }
 
-            // Generate reset token (expires in 1 hour)
-            const resetToken = jwt.sign(
-                { 
-                    id: String(user._id),
-                    email: user.email,
-                    type: 'password_reset'
-                },
-                config.jwt.secret_key,
-                { expiresIn: 60 * 60 } // 1 hour
-            );
+            // Generate 6-digit password reset code
+            const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-            // Store reset token in user document
-            user.rememberToken = resetToken;
+            // Store reset code in user document
+            user.passwordResetCode = resetCode;
+            user.passwordResetExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
             await user.save();
 
-            // TODO: Send email with reset link
-            // For now, we'll return the token in the response
-            // In production, you should send this via email
-            const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+            // Send password reset email
+            try {
+                await emailService.sendPasswordResetEmail(email, resetCode, user.name);
+            } catch (emailError) {
+                console.error('Email sending failed:', emailError);
+                // Continue even if email fails for security reasons
+            }
 
             return res.json({
-                message: 'Password reset link has been sent to your email.',
-                data: {
-                    resetToken, // Remove this in production
-                    resetLink   // Remove this in production
-                }
+                message: 'If an account with this email exists, a password reset link has been sent.'
             });
 
         } catch (err) {
@@ -372,12 +380,12 @@ class authController extends controller {
 
     async resetPassword(req, res, next) {
         try {
-            const { token, newPassword } = req.body;
+            const { email, code, newPassword } = req.body;
 
             // Validate input
-            if (!token || !newPassword) {
+            if (!email || !code || !newPassword) {
                 return res.status(400).json({ 
-                    error: 'Token and new password are required' 
+                    error: 'Email, code, and new password are required' 
                 });
             }
 
@@ -388,41 +396,38 @@ class authController extends controller {
                 });
             }
 
-            // Verify reset token
-            let decoded;
-            try {
-                decoded = jwt.verify(token, config.jwt.secret_key);
-                
-                // Check if it's a password reset token
-                if (decoded.type !== 'password_reset') {
-                    return res.status(401).json({ 
-                        error: 'Invalid reset token' 
-                    });
-                }
-            } catch (err) {
-                return res.status(401).json({ 
-                    error: 'Invalid or expired reset token' 
+            // Validate code format (6 digits)
+            if (!/^\d{6}$/.test(code)) {
+                return res.status(400).json({ 
+                    error: 'Invalid code format' 
                 });
             }
 
-            // Find user
-            const user = await User.findById(decoded.id);
+            // Find user by email
+            const user = await User.findOne({ email: email.toLowerCase() });
             if (!user) {
                 return res.status(404).json({ 
                     error: 'User not found' 
                 });
             }
 
-            // Verify token matches stored token
-            if (user.rememberToken !== token) {
+            // Verify code matches stored code and is not expired
+            if (user.passwordResetCode !== code) {
                 return res.status(401).json({ 
-                    error: 'Invalid reset token' 
+                    error: 'Invalid reset code' 
                 });
             }
 
-            // Update password
+            if (user.passwordResetExpires < new Date()) {
+                return res.status(401).json({ 
+                    error: 'Reset code has expired' 
+                });
+            }
+
+            // Update password and clear reset code
             user.password = newPassword;
-            user.rememberToken = null; // Clear the reset token
+            user.passwordResetCode = null;
+            user.passwordResetExpires = null;
             await user.save();
 
             return res.json({
@@ -431,6 +436,69 @@ class authController extends controller {
 
         } catch (err) {
             console.error('Reset password error:', err);
+            return res.status(500).json({ 
+                error: 'Internal server error' 
+            });
+        }
+    }
+
+    async verifyEmail(req, res, next) {
+        try {
+            const { email, code } = req.body;
+
+            if (!email || !code) {
+                return res.status(400).json({ 
+                    error: 'Email and verification code are required' 
+                });
+            }
+
+            // Validate code format (6 digits)
+            if (!/^\d{6}$/.test(code)) {
+                return res.status(400).json({ 
+                    error: 'Invalid code format' 
+                });
+            }
+
+            // Find user by email
+            const user = await User.findOne({ email: email.toLowerCase() });
+            if (!user) {
+                return res.status(404).json({ 
+                    error: 'User not found' 
+                });
+            }
+
+            // Check if email is already verified
+            if (user.emailVerified) {
+                return res.status(400).json({ 
+                    error: 'Email is already verified' 
+                });
+            }
+
+            // Verify code matches stored code and is not expired
+            if (user.emailVerificationCode !== code) {
+                return res.status(401).json({ 
+                    error: 'Invalid verification code' 
+                });
+            }
+
+            if (user.emailVerificationExpires < new Date()) {
+                return res.status(401).json({ 
+                    error: 'Verification code has expired' 
+                });
+            }
+
+            // Mark email as verified
+            user.emailVerified = true;
+            user.emailVerificationCode = null;
+            user.emailVerificationExpires = null;
+            await user.save();
+
+            return res.json({
+                message: 'Email verified successfully'
+            });
+
+        } catch (err) {
+            console.error('Email verification error:', err);
             return res.status(500).json({ 
                 error: 'Internal server error' 
             });
