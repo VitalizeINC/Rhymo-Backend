@@ -41,7 +41,7 @@ class EmailService {
         }
     }
 
-    async sendPasswordResetEmail(email, resetCode, userName = 'User') {
+    async sendPasswordResetEmail(email, resetCode) {
         const subject = 'کد بازیابی رمز عبور - Rhymo';
         const html = `
             <!DOCTYPE html>
@@ -67,7 +67,7 @@ class EmailService {
                         <p>سامانه شعر و قافیه</p>
                     </div>
                     <div class="content">
-                        <p>سلام ${userName}،</p>
+                        <p>سلام،</p>
                         <p>درخواست بازیابی رمز عبور برای حساب کاربری شما دریافت شده است.</p>
                         <p>کد بازیابی شما:</p>
                         
@@ -94,7 +94,7 @@ class EmailService {
         return await this.sendEmail(email, subject, html);
     }
 
-    async sendWelcomeEmail(email, userName) {
+    async sendWelcomeEmail(email) {
         const subject = 'خوش آمدید به Rhymo';
         const html = `
             <!DOCTYPE html>
@@ -119,7 +119,7 @@ class EmailService {
                         <p>سامانه شعر و قافیه</p>
                     </div>
                     <div class="content">
-                        <p>سلام ${userName}،</p>
+                        <p>سلام،</p>
                         <p>به Rhymo خوش آمدید! ثبت نام شما با موفقیت انجام شد.</p>
                         <p>حالا می‌توانید از تمام امکانات سامانه شعر و قافیه استفاده کنید:</p>
                         <ul>
