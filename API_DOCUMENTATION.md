@@ -46,14 +46,12 @@ Register a new user account.
 **Request Body:**
 ```json
 {
-  "name": "string",
   "email": "string",
   "password": "string"
 }
 ```
 
 **Validation Rules:**
-- `name`: Required, string
 - `email`: Required, valid email format
 - `password`: Required, minimum 6 characters
 
