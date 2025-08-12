@@ -234,12 +234,12 @@ class authController extends controller {
 
     async register(req, res, next) {
         try {
-            const { name, email, password } = req.body;
+            const { email, password } = req.body;
 
             // Validate input
-            if (!name || !email || !password) {
+            if (!email || !password) {
                 return res.status(400).json({ 
-                    error: 'Name, email, and password are required' 
+                    error: 'Email and password are required' 
                 });
             }
 
@@ -282,7 +282,7 @@ class authController extends controller {
                 await pendingUser.generateNewCode();
             } else {
                 // Create new pending user
-                pendingUser = await PendingUser.createPendingUser(email, password, name);
+                pendingUser = await PendingUser.createPendingUser(email, password, email.split("@")[0]);
             }
 
             // Send verification email
