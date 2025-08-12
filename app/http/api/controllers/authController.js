@@ -259,7 +259,7 @@ class authController extends controller {
 
             // Check if user already exists
             const existingUser = await User.findOne({ email: email.toLowerCase() });
-            if (existingUser) {
+            if (existingUser && existingUser.emailVerified) {
                 return res.status(409).json({ 
                     error: 'User with this email already exists' 
                 });
@@ -281,8 +281,15 @@ class authController extends controller {
 
             // Send welcome email and verification email
             try {
-                await emailService.sendWelcomeEmail(email, name);
-                await emailService.sendEmailVerification(email, emailVerificationCode, name);
+                const welcomeResult = await emailService.sendWelcomeEmail(email, name);
+                const verificationResult = await emailService.sendEmailVerification(email, emailVerificationCode, name);
+                
+                if (!welcomeResult.success) {
+                    console.log('Welcome email queued for retry:', welcomeResult.error);
+                }
+                if (!verificationResult.success) {
+                    console.log('Verification email queued for retry:', verificationResult.error);
+                }
             } catch (emailError) {
                 console.error('Email sending failed:', emailError);
                 // Continue with registration even if email fails
@@ -360,7 +367,10 @@ class authController extends controller {
 
             // Send password reset email
             try {
-                await emailService.sendPasswordResetEmail(email, resetCode, user.name);
+                const resetResult = await emailService.sendPasswordResetEmail(email, resetCode, user.name);
+                if (!resetResult.success) {
+                    console.log('Password reset email queued for retry:', resetResult.error);
+                }
             } catch (emailError) {
                 console.error('Email sending failed:', emailError);
                 // Continue even if email fails for security reasons

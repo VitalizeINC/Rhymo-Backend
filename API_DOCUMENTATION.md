@@ -564,7 +564,67 @@ Authorization: Bearer <admin_jwt_token>
 {}
 ```
 
-### 2. Word Management (Admin)
+### 2. Email Queue Management (Admin)
+
+#### Get Email Queue Status
+**GET** `/admin/email/queue-status`
+
+Get the current status of the email retry queue.
+
+**Headers:**
+```
+Authorization: Bearer <admin_jwt_token>
+```
+
+**Response:**
+```json
+{
+  "pending": 5,
+  "failed": 2,
+  "sent": 150,
+  "total": 157,
+  "pendingEmails": [
+    {
+      "to": "user@example.com",
+      "subject": "کد تایید ایمیل - Rhymo",
+      "retryCount": 1,
+      "nextRetry": "2024-01-01T12:30:00.000Z",
+      "createdAt": "2024-01-01T12:00:00.000Z",
+      "emailType": "verification"
+    }
+  ],
+  "failedEmails": [
+    {
+      "to": "user@example.com",
+      "subject": "کد بازیابی رمز عبور - Rhymo",
+      "retryCount": 3,
+      "lastError": "SMTP connection failed",
+      "createdAt": "2024-01-01T11:00:00.000Z",
+      "emailType": "password_reset"
+    }
+  ]
+}
+```
+
+#### Clear Email Queue
+**DELETE** `/admin/email/clear-queue`
+
+Clear all pending emails from the retry queue.
+
+**Headers:**
+```
+Authorization: Bearer <admin_jwt_token>
+```
+
+**Response:**
+```json
+{
+  "message": "Email queue cleared successfully",
+  "clearedCount": 5
+}
+```
+
+### 3. Word Management (Admin)
 
 #### Get All Words
 **GET** `/admin/getWords`
@@ -734,6 +794,26 @@ Authorization: Bearer <admin_jwt_token>
 }
 ```
 
+### EmailQueue Model
+```javascript
+{
+  _id: ObjectId,
+  to: String (required),
+  subject: String (required),
+  html: String (required),
+  text: String (default: null),
+  retryCount: Number (default: 0),
+  maxRetries: Number (default: 3),
+  nextRetryAt: Date (required),
+  lastError: String (default: null),
+  status: String (enum: ['pending', 'failed', 'sent'], default: 'pending'),
+  emailType: String (enum: ['welcome', 'verification', 'password_reset', 'custom'], required),
+  metadata: Object (default: {}), // Additional data like user info
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
 ---
 
 ## Error Codes
@@ -748,6 +828,32 @@ Authorization: Bearer <admin_jwt_token>
 - `500`: Internal Server Error
 
 ---
+
+## Email Retry System
+
+The API includes a robust email retry system to handle delivery failures:
+
+### Features
+- **Automatic Retries**: Failed emails are automatically retried with exponential backoff
+- **Persistent Queue**: Emails are stored in the database for reliability across server restarts
+- **Configurable Retry Limits**: Set maximum retry attempts via `EMAIL_MAX_RETRIES` environment variable
+- **Retry Delays**: Progressive delays between retries (5min, 15min, 30min)
+- **Queue Monitoring**: Admin endpoints to monitor and manage the email queue
+- **Fallback Support**: In-memory queue as fallback if database is unavailable
+
+### Retry Flow
+1. Email sending fails
+2. Email is queued for retry with metadata (type, user info, etc.)
+3. Retry processor runs every minute
+4. Emails ready for retry are processed
+5. Successful emails are marked as sent
+6. Failed emails are retried or marked as permanently failed
+
+### Email Types
+- `welcome`: Welcome emails for new users
+- `verification`: Email verification codes
+- `password_reset`: Password reset codes
+- `custom`: Generic emails
 
 ## Persian Text Processing
 
@@ -802,6 +908,9 @@ To run the API locally:
   - Example: `host.exp.Exponent,com.yourapp.client`
   - If not set, audience validation is skipped (less secure but more flexible)
 - `GOOGLE_AUTH_CLIENT_ID`: Google OAuth client ID for Google Sign-In validation
+- `EMAIL_MAX_RETRIES`: Maximum number of email retry attempts (default: 3)
+- `USE_DATABASE_EMAIL_QUEUE`: Whether to use database for email queue persistence (default: true)
+  - Set to 'false' to use in-memory queue only
 
 ---
 
