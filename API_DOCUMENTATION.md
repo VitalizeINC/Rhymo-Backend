@@ -197,7 +197,40 @@ Verify user's email address using the verification code.
 - `401`: `{ "error": "Verification code has expired" }`
 - `404`: `{ "error": "User not found" }`
 
-### 6. Apple Sign-In
+### 6. Resend Verification Email
+**POST** `/resend-verification`
+
+Request a new email verification code if the previous one expired or wasn't received.
+
+**Request Body:**
+```json
+{
+  "email": "string"
+}
+```
+
+**Validation Rules:**
+- `email`: Required, valid email format
+
+**Response:**
+```json
+{
+  "message": "If an account with this email exists, a verification code has been sent."
+}
+```
+
+**Error Responses:**
+- `400`: `{ "error": "Email is required" }`
+- `400`: `{ "error": "Invalid email format" }`
+- `400`: `{ "error": "Email is already verified" }`
+- `429`: `{ "error": "Please wait X minutes before requesting a new verification code" }`
+- `500`: `{ "error": "Failed to send verification email. Please try again later." }`
+
+**Rate Limiting:**
+- Users can only request a new verification code after the previous one expires (10 minutes)
+- This prevents spam and abuse of the email service
+
+### 7. Apple Sign-In
 **POST** `/auth/apple`
 
 Authenticate a user using Apple Sign-In and receive a JWT token.
@@ -564,67 +597,7 @@ Authorization: Bearer <admin_jwt_token>
 {}
 ```
 
-### 2. Email Queue Management (Admin)
-
-#### Get Email Queue Status
-**GET** `/admin/email/queue-status`
-
-Get the current status of the email retry queue.
-
-**Headers:**
-```
-Authorization: Bearer <admin_jwt_token>
-```
-
-**Response:**
-```json
-{
-  "pending": 5,
-  "failed": 2,
-  "sent": 150,
-  "total": 157,
-  "pendingEmails": [
-    {
-      "to": "user@example.com",
-      "subject": "کد تایید ایمیل - Rhymo",
-      "retryCount": 1,
-      "nextRetry": "2024-01-01T12:30:00.000Z",
-      "createdAt": "2024-01-01T12:00:00.000Z",
-      "emailType": "verification"
-    }
-  ],
-  "failedEmails": [
-    {
-      "to": "user@example.com",
-      "subject": "کد بازیابی رمز عبور - Rhymo",
-      "retryCount": 3,
-      "lastError": "SMTP connection failed",
-      "createdAt": "2024-01-01T11:00:00.000Z",
-      "emailType": "password_reset"
-    }
-  ]
-}
-```
-
-#### Clear Email Queue
-**DELETE** `/admin/email/clear-queue`
-
-Clear all pending emails from the retry queue.
-
-**Headers:**
-```
-Authorization: Bearer <admin_jwt_token>
-```
-
-**Response:**
-```json
-{
-  "message": "Email queue cleared successfully",
-  "clearedCount": 5
-}
-```
-
-### 3. Word Management (Admin)
+### 2. Word Management (Admin)
 
 #### Get All Words
 **GET** `/admin/getWords`
@@ -794,26 +767,6 @@ Authorization: Bearer <admin_jwt_token>
 }
 ```
 
-### EmailQueue Model
-```javascript
-{
-  _id: ObjectId,
-  to: String (required),
-  subject: String (required),
-  html: String (required),
-  text: String (default: null),
-  retryCount: Number (default: 0),
-  maxRetries: Number (default: 3),
-  nextRetryAt: Date (required),
-  lastError: String (default: null),
-  status: String (enum: ['pending', 'failed', 'sent'], default: 'pending'),
-  emailType: String (enum: ['welcome', 'verification', 'password_reset', 'custom'], required),
-  metadata: Object (default: {}), // Additional data like user info
-  createdAt: Date,
-  updatedAt: Date
-}
-```
-
 ---
 
 ## Error Codes
@@ -825,35 +778,10 @@ Authorization: Bearer <admin_jwt_token>
 - `403`: Forbidden (Invalid credentials)
 - `404`: Not Found
 - `409`: Conflict (Resource already exists)
+- `429`: Too Many Requests (Rate limiting)
 - `500`: Internal Server Error
 
 ---
-
-## Email Retry System
-
-The API includes a robust email retry system to handle delivery failures:
-
-### Features
-- **Automatic Retries**: Failed emails are automatically retried with exponential backoff
-- **Persistent Queue**: Emails are stored in the database for reliability across server restarts
-- **Configurable Retry Limits**: Set maximum retry attempts via `EMAIL_MAX_RETRIES` environment variable
-- **Retry Delays**: Progressive delays between retries (5min, 15min, 30min)
-- **Queue Monitoring**: Admin endpoints to monitor and manage the email queue
-- **Fallback Support**: In-memory queue as fallback if database is unavailable
-
-### Retry Flow
-1. Email sending fails
-2. Email is queued for retry with metadata (type, user info, etc.)
-3. Retry processor runs every minute
-4. Emails ready for retry are processed
-5. Successful emails are marked as sent
-6. Failed emails are retried or marked as permanently failed
-
-### Email Types
-- `welcome`: Welcome emails for new users
-- `verification`: Email verification codes
-- `password_reset`: Password reset codes
-- `custom`: Generic emails
 
 ## Persian Text Processing
 
@@ -908,9 +836,6 @@ To run the API locally:
   - Example: `host.exp.Exponent,com.yourapp.client`
   - If not set, audience validation is skipped (less secure but more flexible)
 - `GOOGLE_AUTH_CLIENT_ID`: Google OAuth client ID for Google Sign-In validation
-- `EMAIL_MAX_RETRIES`: Maximum number of email retry attempts (default: 3)
-- `USE_DATABASE_EMAIL_QUEUE`: Whether to use database for email queue persistence (default: true)
-  - Set to 'false' to use in-memory queue only
 
 ---
 
@@ -921,6 +846,8 @@ To run the API locally:
 - JWT tokens expire after 24 hours
 - Email verification codes expire after 10 minutes
 - Password reset codes expire after 10 minutes
+- Users can request new verification emails if the previous one expires or wasn't received
+- Rate limiting prevents abuse of email verification requests
 - Word processing includes complex Persian language rules for syllable division
 - The API supports both traditional email/password authentication and modern social authentication
 - Admin functionality is available for word management and approval workflows 

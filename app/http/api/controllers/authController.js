@@ -259,7 +259,7 @@ class authController extends controller {
 
             // Check if user already exists
             const existingUser = await User.findOne({ email: email.toLowerCase() });
-            if (existingUser && existingUser.emailVerified) {
+            if (existingUser) {
                 return res.status(409).json({ 
                     error: 'User with this email already exists' 
                 });
@@ -281,15 +281,8 @@ class authController extends controller {
 
             // Send welcome email and verification email
             try {
-                const welcomeResult = await emailService.sendWelcomeEmail(email, name);
-                const verificationResult = await emailService.sendEmailVerification(email, emailVerificationCode, name);
-                
-                if (!welcomeResult.success) {
-                    console.log('Welcome email queued for retry:', welcomeResult.error);
-                }
-                if (!verificationResult.success) {
-                    console.log('Verification email queued for retry:', verificationResult.error);
-                }
+                await emailService.sendWelcomeEmail(email);
+                await emailService.sendEmailVerification(email, emailVerificationCode);
             } catch (emailError) {
                 console.error('Email sending failed:', emailError);
                 // Continue with registration even if email fails
@@ -367,10 +360,7 @@ class authController extends controller {
 
             // Send password reset email
             try {
-                const resetResult = await emailService.sendPasswordResetEmail(email, resetCode, user.name);
-                if (!resetResult.success) {
-                    console.log('Password reset email queued for retry:', resetResult.error);
-                }
+                await emailService.sendPasswordResetEmail(email, resetCode, user.name);
             } catch (emailError) {
                 console.error('Email sending failed:', emailError);
                 // Continue even if email fails for security reasons
@@ -509,6 +499,82 @@ class authController extends controller {
 
         } catch (err) {
             console.error('Email verification error:', err);
+            return res.status(500).json({ 
+                error: 'Internal server error' 
+            });
+        }
+    }
+
+    async resendVerificationEmail(req, res, next) {
+        try {
+            const { email } = req.body;
+
+            if (!email) {
+                return res.status(400).json({ 
+                    error: 'Email is required' 
+                });
+            }
+
+            // Validate email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                return res.status(400).json({ 
+                    error: 'Invalid email format' 
+                });
+            }
+
+            // Find user by email
+            const user = await User.findOne({ email: email.toLowerCase() });
+            if (!user) {
+                // Don't reveal if user exists or not for security
+                return res.json({
+                    message: 'If an account with this email exists, a verification code has been sent.'
+                });
+            }
+
+            // Check if email is already verified
+            if (user.emailVerified) {
+                return res.status(400).json({ 
+                    error: 'Email is already verified' 
+                });
+            }
+
+            // Check if we can send a new verification code (rate limiting)
+            const now = new Date();
+            const lastVerificationSent = user.emailVerificationExpires;
+            
+            // If the last verification code is still valid (not expired), don't send a new one
+            if (lastVerificationSent && lastVerificationSent > now) {
+                const timeRemaining = Math.ceil((lastVerificationSent - now) / 1000 / 60); // minutes
+                return res.status(429).json({ 
+                    error: `Please wait ${timeRemaining} minutes before requesting a new verification code` 
+                });
+            }
+
+            // Generate new 6-digit email verification code
+            const emailVerificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+            // Update user with new verification code
+            user.emailVerificationCode = emailVerificationCode;
+            user.emailVerificationExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+            await user.save();
+
+            // Send verification email
+            try {
+                await emailService.sendEmailVerification(email, emailVerificationCode);
+            } catch (emailError) {
+                console.error('Email sending failed:', emailError);
+                return res.status(500).json({ 
+                    error: 'Failed to send verification email. Please try again later.' 
+                });
+            }
+
+            return res.json({
+                message: 'If an account with this email exists, a verification code has been sent.'
+            });
+
+        } catch (err) {
+            console.error('Resend verification email error:', err);
             return res.status(500).json({ 
                 error: 'Internal server error' 
             });
