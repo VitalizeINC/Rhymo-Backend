@@ -287,7 +287,7 @@ class authController extends controller {
 
             // Send verification email
             try {
-                await emailService.sendEmailVerification(email, pendingUser.verificationCode, pendingUser.name);
+                await emailService.sendEmailVerification(email, pendingUser.verificationCode);
             } catch (emailError) {
                 console.error('Email sending failed:', emailError);
                 return res.status(500).json({ 
@@ -562,7 +562,7 @@ class authController extends controller {
 
             // Send verification email
             try {
-                await emailService.sendEmailVerification(email, pendingUser.verificationCode, pendingUser.name);
+                await emailService.sendEmailVerification(email, pendingUser.verificationCode);
             } catch (emailError) {
                 console.error('Email sending failed:', emailError);
                 return res.status(500).json({ 
