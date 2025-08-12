@@ -97,9 +97,9 @@ class authController extends controller {
             const jwks = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
 
             // Get Google client ID from environment variable
-            const googleClientId = process.env.GOOGLE_CLIENT_ID;
+            const googleClientId = process.env.GOOGLE_AUTH_CLIENT_ID;
             if (!googleClientId) {
-                console.error('GOOGLE_CLIENT_ID environment variable not set');
+                console.error('GOOGLE_AUTH_CLIENT_ID environment variable not set');
                 return res.status(500).json({ error: 'Google authentication not configured' });
             }
 
