@@ -1,5 +1,10 @@
 import controller from './controller.js';
 import Word from '../../../models/word.js';
+
+const longVowels = ['آ', 'و', 'ی', 'ا']
+const shortVowels = [String.fromCharCode(1614), String.fromCharCode(1615), String.fromCharCode(1616)]
+
+
 class wordManageController extends controller {
     async deleteWord(req, res, next) {
         let id = req.query.id
@@ -272,6 +277,7 @@ class wordManageController extends controller {
         let filter = req.query.filter
         let id = req.query.id
         let initWord = await Word.findById(id)
+        console.log("Searching for: ", initWord.word)
         // از اسکیپ برو جلو پارت تا برو جلو
         let partsNumber = parseInt(req.query.partsNumber) || initWord.hejaCounter
         if(partsNumber == -1) partsNumber = initWord.hejaCounter
@@ -280,7 +286,7 @@ class wordManageController extends controller {
         let response = await this.ryhmFinding(mainWord, filter, partsNumber)
         res.status(200).json(response)
     }
-    async ryhmFinding(w, f, n) {
+    async ryhmFinding(w, f, n, professional=true) {
         let rhymeHeja = n
         let filterChar = []
         f.split(",").map(x =>
@@ -316,6 +322,10 @@ class wordManageController extends controller {
                 })
             }
         }
+
+        if(professional) words = this.wordPostProcessing(words, w.heja, w.ava)
+
+        
         let response = []
         let fullResponse = []
         let highlight = []
@@ -390,6 +400,42 @@ class wordManageController extends controller {
                 }
             }
         return hejaPartSentence
+    }
+
+    /*
+    این فانکشن برای پردازش کلمات برای جفت های صوتی است
+    برای هر کلمه بررسی میکند که آیا آخرین صوت آن کلمه با آخرین صوت جفت صوتی مطابقت دارد یا خیر
+    اگر مطابقت داشته باشد کلمه پردازش شده را به آرایه اضافه میکند
+    اگر مطابقت نداشته باشد کلمه را حذف میکند
+    TODO:
+    ممکنه برای ی و واو نیاز به پردازش مضاعف باشد تا تشخیص دهیم نقش صامتی دارد یا مصوتی 
+    از روی آوا می‌توان فهمید
+    */
+    wordPostProcessing(words, heja, ava){
+        let processedWords = []
+        for (let i = 0; i < words.length; i++) {
+            let word = words[i]
+            let isProfessional = true
+            for(let j = 0; j < word.heja.length; j++){
+                console.log("Checking word is professional rhyme: ", word.word)
+                let hejaPart = word.heja[j]
+                let lastVaj = hejaPart.split("").pop()
+                let incomingHeja = Object.assign([], heja)
+                let incomingHejaPart = incomingHeja[j]
+                let incomingLastVaj = incomingHejaPart.split("").pop()
+                let isLastVajVowel = longVowels.includes(lastVaj) || shortVowels.includes(lastVaj)
+                let isIncomingLastVajVowel = longVowels.includes(incomingLastVaj) || shortVowels.includes(incomingLastVaj)
+                let bothVowels = isLastVajVowel && isIncomingLastVajVowel || !isLastVajVowel && !isIncomingLastVajVowel
+                if(!bothVowels){
+                    console.log("Word is not professional")
+                    isProfessional = false
+                }
+            }
+            if(isProfessional){
+                processedWords.push(word)
+            }
+        }
+        return processedWords
     }
 }
 
