@@ -1,40 +1,44 @@
-import nodemailer from 'nodemailer';
-
 class EmailService {
     constructor() {
         this.smtp2goApiKey = process.env.SMTP2GO_API_KEY || 'api-92185494F7EF46419713E65A00EE34B9';
-        this.fromEmail = process.env.FROM_EMAIL || 'noreply@rhymo.com';
+        this.fromEmail = process.env.FROM_EMAIL || 'Rhymo-noreply@vitalize.dev'; // Change to a verified domain
         this.fromName = process.env.FROM_NAME || 'Rhymo Team';
-        this.frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        
-        // Configure SMTP2GO transporter
-        this.transporter = nodemailer.createTransport({
-            host: 'mail.smtp2go.com',
-            port: 2525, // SMTP2GO SMTP port
-            secure: false, // true for 465, false for other ports
-            auth: {
-                user: this.smtp2goApiKey,
-                pass: this.smtp2goApiKey
-            },
-            tls: {
-                rejectUnauthorized: false
-            }
-        });
+        this.apiUrl = 'https://api.smtp2go.com/v3/email/send';
     }
 
     async sendEmail(to, subject, html, text = null) {
         try {
-            const mailOptions = {
-                from: `"${this.fromName}" <${this.fromEmail}>`,
-                to: to,
+            const emailData = {
+                sender: this.fromEmail,
+                to: Array.isArray(to) ? to : [to],
                 subject: subject,
-                html: html,
-                text: text || this.stripHtml(html)
+                html_body: html,
+                text_body: text || this.stripHtml(html)
             };
 
-            const info = await this.transporter.sendMail(mailOptions);
-            console.log('Email sent successfully:', info.messageId);
-            return { success: true, messageId: info.messageId };
+            const response = await fetch(this.apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Smtp2go-Api-Key': this.smtp2goApiKey,
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(emailData)
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.data && result.data.succeeded > 0) {
+                console.log('Email sent successfully:', result.data.email_id);
+                return { success: true, messageId: result.data.email_id };
+            } else {
+                console.error('Email sending failed:', result);
+                return { 
+                    success: false, 
+                    error: result.data?.error || 'Failed to send email',
+                    details: result
+                };
+            }
         } catch (error) {
             console.error('Email sending failed:', error);
             return { success: false, error: error.message };
@@ -108,7 +112,6 @@ class EmailService {
                     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
                     .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
                     .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-                    .button { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
                     .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
                 </style>
             </head>
@@ -127,10 +130,6 @@ class EmailService {
                             <li>مدیریت کلمات شخصی</li>
                             <li>دسترسی به دایره‌المعارف شعر</li>
                         </ul>
-                        
-                        <div style="text-align: center;">
-                            <a href="${this.frontendUrl}" class="button">شروع کار</a>
-                        </div>
                         
                         <p>اگر سوالی دارید، با ما در تماس باشید.</p>
                         
