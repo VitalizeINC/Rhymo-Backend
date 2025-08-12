@@ -233,12 +233,12 @@ class authController extends controller {
 
     async register(req, res, next) {
         try {
-            const { name, email, password } = req.body;
+            const { email, password } = req.body;
 
             // Validate input
-            if (!name || !email || !password) {
+            if (!email || !password) {
                 return res.status(400).json({ 
-                    error: 'Name, email, and password are required' 
+                    error: 'Email and password are required' 
                 });
             }
 
@@ -270,7 +270,7 @@ class authController extends controller {
 
             // Create new user
             const newUser = new User({
-                name,
+                name: email.split("@")[0],
                 email: email.toLowerCase(),
                 password,
                 emailVerificationCode,
