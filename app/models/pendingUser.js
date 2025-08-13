@@ -39,11 +39,19 @@ const pendingUserSchema = new Schema({
 // Hash password before saving
 pendingUserSchema.pre('save', function(next) {
     if (this.isModified('password')) {
-        bcrypt.hash(this.password, bcrypt.genSaltSync(15), (err, hash) => {
-            if (err) return next(err);
-            this.password = hash;
+        // Check if password is already hashed using a flag
+        if (this.passwordEncrypted === true) {
+            // Password is already hashed, skip hashing
+            this.passwordEncrypted = undefined; // Clear the flag
             next();
-        });
+        } else {
+            // Password is not hashed, hash it
+            bcrypt.hash(this.password, bcrypt.genSaltSync(15), (err, hash) => {
+                if (err) return next(err);
+                this.password = hash;
+                next();
+            });
+        }
     } else {
         next();
     }

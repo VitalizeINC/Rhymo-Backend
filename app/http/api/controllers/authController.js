@@ -340,7 +340,7 @@ class authController extends controller {
 
             // Store reset code in user document
             user.passwordResetCode = resetCode;
-            user.passwordResetExpires = new Date(Date.now() + 1 * 60 * 1000); // 1 minutes
+            user.passwordResetExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
             await user.save();
 
             // Send password reset email
@@ -482,6 +482,9 @@ class authController extends controller {
                 password: pendingUser.password,
                 emailVerified: true
             });
+
+            // Set flag to indicate password is already hashed
+            newUser.passwordEncrypted = true;
 
             await newUser.save();
 

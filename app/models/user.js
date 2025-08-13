@@ -17,21 +17,43 @@ const userSchema = new Schema({
 userSchema.plugin(mongoosePaginate);
 
 userSchema.pre('save', function(next) {
-    bcrypt.hash(this.password, bcrypt.genSaltSync(15), (err, hash) => {
-        if (err) console.log(err);
-        this.password = hash;
+    if (this.isModified('password')) {
+        // Check if password is already hashed using a flag
+        if (this.passwordEncrypted === true) {
+            // Password is already hashed, skip hashing
+            this.passwordEncrypted = undefined; // Clear the flag
+            next();
+        } else {
+            // Password is not hashed, hash it
+            bcrypt.hash(this.password, bcrypt.genSaltSync(15), (err, hash) => {
+                if (err) console.log(err);
+                this.password = hash;
+                next();
+            });
+        }
+    } else {
         next();
-    });
+    }
 });
 
 userSchema.pre('findOneAndUpdate', function(next) {
     const update = this.getUpdate();
     if (update && update.$set && update.$set.password) {
-        const salt = bcrypt.genSaltSync(15);
-        const hash = bcrypt.hashSync(update.$set.password, salt);
-        update.$set.password = hash;
+        // Check if password is already hashed using a flag
+        if (update.$set.passwordEncrypted === true) {
+            // Password is already hashed, skip hashing
+            delete update.$set.passwordEncrypted; // Remove the flag
+            next();
+        } else {
+            // Password is not hashed, hash it
+            const salt = bcrypt.genSaltSync(15);
+            const hash = bcrypt.hashSync(update.$set.password, salt);
+            update.$set.password = hash;
+            next();
+        }
+    } else {
+        next();
     }
-    next();
 });
 
 userSchema.methods.comparePassword = function(password) {
