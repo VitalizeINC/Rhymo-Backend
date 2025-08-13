@@ -240,6 +240,15 @@ class processController extends controller {
 
     }
     stringBootstrap(string) {
+
+        // Check Tanvin
+        for (var i = 0; i < string.length; i++) {
+            if (string[i] == String.fromCharCode(1611)) {
+                string = string.split("")
+                string[i] = 'َن'
+                string = string.join("")
+            }
+        }
         
         // Check Nim Fasele
         for (var i = 0; i < string.length; i++) {
