@@ -70,11 +70,21 @@ class wordManageController extends controller {
     async suggestWord(req, res, next) {
         let search = new RegExp(`^${req.query.string}`, 'i');
         let words = await Word.find({
-            $and: [
-                { word: search },
-                { word: { $not: /\s/ } }
+            $or: [
+              {
+                $and: [
+                  { word: search },
+                  { word: { $not: /\s/ } }
+                ]
+              },
+              {
+                $and: [
+                  { fullWord: search },
+                  { fullWord: { $not: /\s/ } }
+                ]
+              }
             ]
-        }).limit(10)
+          }).limit(10)
         res.status(200).json(words)
     }
 
