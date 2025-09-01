@@ -243,7 +243,7 @@ class wordManageController extends controller {
     }
 
 
-    async getPartsNumber(req, res, next) {
+    async getRhymes(req, res, next) {
         let filter = req.query.filter
         let id = req.query.id
         let initWord = await Word.findById(id)
@@ -265,22 +265,22 @@ class wordManageController extends controller {
         let result = []
         let mostHejaRhyme = {}
         // Reverse loop from most heja to least heja
-        for(let i = beforeMainWord.hejaCounter - 1; i >= 1; i--){
-            console.log("i", i + 1)
-            let mainWord = await this.wordPreProcessing(initWord, i+1, partsSkip)
-            let response = await this.ryhmFinding(mainWord, filter, i+1)
-            if (i == beforeMainWord.hejaCounter - 1) {
-                mostHejaRhyme = response
-            }
-            // console.log("response", response)
-            response?.rhymes?.length > 0 ? result.push(i+1) : null
-        }
+        // for(let i = beforeMainWord.hejaCounter - 1; i >= 1; i--){
+        //     console.log("i", i + 1)
+            
+        //     if (i == beforeMainWord.hejaCounter - 1) {
+        //         mostHejaRhyme = response
+        //     }
+        //     // console.log("response", response)
+        //     response?.rhymes?.length > 0 ? result.push(i+1) : null
+        // }
+        let mainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
+        let response = await this.ryhmFinding(mainWord, filter, partsNumber)
 
         res.status(200).json({
             numbers: result,
             selectedWord: initWord,
-            mostHejaRhyme: mostHejaRhyme
-
+            response
         })
     }
     async getRhymes(req, res, next) {

@@ -59,7 +59,7 @@ class authController extends controller {
                 const token = jwt.sign(
                     { id: String(user._id), provider: 'apple' },
                     config.jwt.secret_key,
-                    { expiresIn: 60 * 60 * 24 }
+                    { expiresIn: 60 * 60 * 24 * 30 * 12}
                 );
 
                 return res.json({ data: { token } });
@@ -76,7 +76,7 @@ class authController extends controller {
                 const token = jwt.sign(
                     { id: String(user._id), provider: 'apple' },
                     config.jwt.secret_key,
-                    { expiresIn: 60 * 60 * 24 }
+                    { expiresIn: 60 * 60 * 24 * 30 * 12}
                 );
                 return res.json({ data: { token } });
             }
@@ -152,7 +152,7 @@ class authController extends controller {
                     name: user.name
                 },
                 config.jwt.secret_key,
-                { expiresIn: 60 * 60 * 24 } // 24 hours
+                { expiresIn: 60 * 60 * 24 * 30 * 12} // 24 hours
             );
 
             return res.json({ 
@@ -209,7 +209,7 @@ class authController extends controller {
                     admin: user.admin 
                 },
                 config.jwt.secret_key,
-                { expiresIn: 60 * 60 * 24 } // 24 hours
+                { expiresIn: 60 * 60 * 24 * 30 * 12} // 24 hours
             );
 
             return res.json({
@@ -500,7 +500,7 @@ class authController extends controller {
                     admin: newUser.admin 
                 },
                 config.jwt.secret_key,
-                { expiresIn: 60 * 60 * 24 } // 24 hours
+                { expiresIn: 60 * 60 * 24 * 30 * 12} // 24 hours
             );
 
             return res.json({
