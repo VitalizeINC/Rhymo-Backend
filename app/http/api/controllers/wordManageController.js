@@ -272,7 +272,7 @@ class wordManageController extends controller {
         res.status(200).json(response)
     }
 
-    async ryhmFinding(w, f, n, professional=true, page=1, limit=10) {
+    async ryhmFinding(w, f, n, professional=false, page=1, limit=10) {
         let rhymeHeja = n
         let filterChar = []
         f.split(",").map(x =>
