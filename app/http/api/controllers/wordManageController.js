@@ -260,13 +260,19 @@ class wordManageController extends controller {
                 error: "Parts number must be greater than 1"
             })
         }
+        
+        // Pagination parameters
+        let page = parseInt(req.query.page) || 1
+        let limit = parseInt(req.query.limit) || 10
+        let professional = req.query.professional !== 'false' // default to true
+        
         let mainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
-        let response = await this.ryhmFinding(mainWord, filter, partsNumber)
+        let response = await this.ryhmFinding(mainWord, filter, partsNumber, professional, page, limit)
         response.selectedWord = initWord
         res.status(200).json(response)
     }
 
-    async ryhmFinding(w, f, n, professional=true) {
+    async ryhmFinding(w, f, n, professional=true, page=1, limit=10) {
         let rhymeHeja = n
         let filterChar = []
         f.split(",").map(x =>
@@ -288,7 +294,13 @@ class wordManageController extends controller {
         let searchAva = new RegExp(avaQuery);
 
         console.log("searchAva", searchAva)
-        let words = await Word.find({ avaString: searchAva, word: searchChar, hejaCounter: rhymeHeja }).select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter');
+        
+        // Fetch more words than needed to account for filtering
+        // We'll fetch 3x the limit to ensure we have enough after filtering
+        let fetchLimit = limit * 10
+        let words = await Word.find({ avaString: searchAva, word: searchChar, hejaCounter: rhymeHeja })
+            .select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter')
+            .limit(fetchLimit);
         // Remove words with more than rhymeHeja from result
         // console.log("rhymeHeja", rhymeHeja, backupFilterAva.length)
         // for(let i = rhymeHeja; i < backupFilterAva.length; i++){
@@ -347,15 +359,40 @@ class wordManageController extends controller {
             return -1;
           }
 
+        // Apply pagination to filtered results
+        const startIndex = (page - 1) * limit
+        const endIndex = startIndex + limit
+        
+        const paginatedResponse = response.slice(startIndex, endIndex)
+        const paginatedFullResponse = fullResponse.slice(startIndex, endIndex)
+        const paginatedHighlight = highlight.slice(startIndex, endIndex)
+        const paginatedRhymeAva = rhymeAva.slice(startIndex, endIndex)
+        const paginatedHeja = heja.slice(startIndex, endIndex)
+        const paginatedIds = ids.slice(startIndex, endIndex)
+
+        // Calculate pagination metadata
+        const totalItems = response.length
+        const totalPages = Math.ceil(totalItems / limit)
+        const hasNextPage = page < totalPages
+        const hasPrevPage = page > 1
 
         return {
-            rhymes: response,
-            fullResponse,
-            rhymeAva,
-            heja,
-            ids,
-            highlight
-
+            rhymes: paginatedResponse,
+            fullResponse: paginatedFullResponse,
+            rhymeAva: paginatedRhymeAva,
+            heja: paginatedHeja,
+            ids: paginatedIds,
+            highlight: paginatedHighlight,
+            pagination: {
+                currentPage: page,
+                totalPages,
+                totalItems,
+                itemsPerPage: limit,
+                hasNextPage,
+                hasPrevPage,
+                nextPage: hasNextPage ? page + 1 : null,
+                prevPage: hasPrevPage ? page - 1 : null
+            }
         }
     }
     async rhymeProcessing(word, startIndex, lastIndex) {
