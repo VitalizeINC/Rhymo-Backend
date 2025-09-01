@@ -17,7 +17,7 @@ router.post('/saveWords', authenticateUser.handle, wordManageController.saveWord
 
 //Proccess
 router.get('/getRhymes', authenticateUser.handle, wordManageController.getRhymes);
-router.get('/getPartsNumber', authenticateUser.handle, wordManageController.getPartsNumber);
+// router.get('/getPartsNumber', authenticateUser.handle, wordManageController.getPartsNumber);
 router.post('/getWordDetails', authenticateUser.handle, processController.getWordDetails);
 
 

@@ -532,23 +532,20 @@ Authorization: Bearer <jwt_token>
 **Response:**
 ```json
 {
-  "rhymes": [
-    {
-      "_id": "rhyme_word_id",
-      "fullWord": "کلمه",
-      "word": "کلمه",
-      "heja": ["ک", "ل", "م", "ه"],
-      "ava": ["ک", "ل", "م", "ه"],
-      "hejaCounter": 4
-    }
-  ],
-  "fullResponse": ["کلمه"],
+  "rhymes": ["کلمه"],
+  "fullResponse": ["کلمه کامل"],
   "rhymeAva": ["ک,ل,م,ه"],
   "heja": [["ک", "ل", "م", "ه"]],
   "ids": ["word_id"],
   "highlight": [[0, 3]]
 }
 ```
+
+**Error Responses:**
+- `400`: `{ "error": "Parts number must be greater than 1" }`
+- `404`: `{ "error": "Word not found" }`
+
+**Note:** The response contains arrays of rhyming words and their details. The `rhymes` array contains the rhyming word parts, `fullResponse` contains the complete rhyming words, `rhymeAva` contains the phoneme strings, `heja` contains the syllable arrays, `ids` contains the word IDs, and `highlight` contains the position ranges for highlighting the rhyming parts.
 
 #### Get Word Details
 **POST** `/getWordDetails`
