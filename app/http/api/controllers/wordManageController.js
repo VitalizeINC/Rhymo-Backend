@@ -276,7 +276,7 @@ class wordManageController extends controller {
         // }
         let mainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
         let response = await this.ryhmFinding(mainWord, filter, partsNumber)
-
+        response.selectedWord = initWord
         res.status(200).json(response)
     }
     // async getRhymes(req, res, next) {
