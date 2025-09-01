@@ -260,10 +260,10 @@ class wordManageController extends controller {
                 error: "Parts number must be greater than 1"
             })
         }
-        let beforeMainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
-        console.log("beforeMainWord", beforeMainWord)
-        let result = []
-        let mostHejaRhyme = {}
+        // let beforeMainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
+        // console.log("beforeMainWord", beforeMainWord)
+        // let result = []
+        // let mostHejaRhyme = {}
         // Reverse loop from most heja to least heja
         // for(let i = beforeMainWord.hejaCounter - 1; i >= 1; i--){
         //     console.log("i", i + 1)
@@ -283,19 +283,19 @@ class wordManageController extends controller {
             response
         })
     }
-    async getRhymes(req, res, next) {
-        let filter = req.query.filter
-        let id = req.query.id
-        let initWord = await Word.findById(id)
-        console.log("Searching for: ", initWord.word)
-        // از اسکیپ برو جلو پارت تا برو جلو
-        let partsNumber = parseInt(req.query.partsNumber) || initWord.hejaCounter
-        if(partsNumber == -1) partsNumber = initWord.hejaCounter
-        let partsSkip = parseInt(req.query.partsSkip) || 0
-        let mainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
-        let response = await this.ryhmFinding(mainWord, filter, partsNumber)
-        res.status(200).json(response)
-    }
+    // async getRhymes(req, res, next) {
+    //     let filter = req.query.filter
+    //     let id = req.query.id
+    //     let initWord = await Word.findById(id)
+    //     console.log("Searching for: ", initWord.word)
+    //     // از اسکیپ برو جلو پارت تا برو جلو
+    //     let partsNumber = parseInt(req.query.partsNumber) || initWord.hejaCounter
+    //     if(partsNumber == -1) partsNumber = initWord.hejaCounter
+    //     let partsSkip = parseInt(req.query.partsSkip) || 0
+    //     let mainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
+    //     let response = await this.ryhmFinding(mainWord, filter, partsNumber)
+    //     res.status(200).json(response)
+    // }
     async ryhmFinding(w, f, n, professional=true) {
         let rhymeHeja = n
         let filterChar = []
