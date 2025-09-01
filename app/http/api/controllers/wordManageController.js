@@ -260,38 +260,12 @@ class wordManageController extends controller {
                 error: "Parts number must be greater than 1"
             })
         }
-        // let beforeMainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
-        // console.log("beforeMainWord", beforeMainWord)
-        // let result = []
-        // let mostHejaRhyme = {}
-        // Reverse loop from most heja to least heja
-        // for(let i = beforeMainWord.hejaCounter - 1; i >= 1; i--){
-        //     console.log("i", i + 1)
-            
-        //     if (i == beforeMainWord.hejaCounter - 1) {
-        //         mostHejaRhyme = response
-        //     }
-        //     // console.log("response", response)
-        //     response?.rhymes?.length > 0 ? result.push(i+1) : null
-        // }
         let mainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
         let response = await this.ryhmFinding(mainWord, filter, partsNumber)
         response.selectedWord = initWord
         res.status(200).json(response)
     }
-    // async getRhymes(req, res, next) {
-    //     let filter = req.query.filter
-    //     let id = req.query.id
-    //     let initWord = await Word.findById(id)
-    //     console.log("Searching for: ", initWord.word)
-    //     // از اسکیپ برو جلو پارت تا برو جلو
-    //     let partsNumber = parseInt(req.query.partsNumber) || initWord.hejaCounter
-    //     if(partsNumber == -1) partsNumber = initWord.hejaCounter
-    //     let partsSkip = parseInt(req.query.partsSkip) || 0
-    //     let mainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
-    //     let response = await this.ryhmFinding(mainWord, filter, partsNumber)
-    //     res.status(200).json(response)
-    // }
+
     async ryhmFinding(w, f, n, professional=true) {
         let rhymeHeja = n
         let filterChar = []
@@ -303,7 +277,7 @@ class wordManageController extends controller {
             filterAva.push(`${y}`)
         )
         console.log("filterAva", filterAva)
-        let backupFilterAva = Object.assign([], filterAva)
+        // let backupFilterAva = Object.assign([], filterAva)
 
         let searchChar = new RegExp(filterChar.join(""), 'gi');
         // let avaString = w.ava.splice(0, 1).join(',')
@@ -316,18 +290,18 @@ class wordManageController extends controller {
         console.log("searchAva", searchAva)
         let words = await Word.find({ avaString: searchAva, word: searchChar, hejaCounter: rhymeHeja }).select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter');
         // Remove words with more than rhymeHeja from result
-        console.log("rhymeHeja", rhymeHeja, backupFilterAva.length)
-        for(let i = rhymeHeja; i < backupFilterAva.length; i++){
-            let newFilterAva = Object.assign([], backupFilterAva)
-            let newSearchAva = new RegExp(newFilterAva.splice( newFilterAva.length - (i + 1) , newFilterAva.length ).join(","));
-            // console.log("newSearchAva", newSearchAva)
-            let removeList = await Word.find({ avaString: newSearchAva, word: searchChar, hejaCounter: rhymeHeja }).select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter');
-            for(let j = 0; j < removeList.length; j++){
-                words = words.filter(word => {
-                    return word.id !== removeList[j].id
-                })
-            }
-        }
+        // console.log("rhymeHeja", rhymeHeja, backupFilterAva.length)
+        // for(let i = rhymeHeja; i < backupFilterAva.length; i++){
+        //     let newFilterAva = Object.assign([], backupFilterAva)
+        //     let newSearchAva = new RegExp(newFilterAva.splice( newFilterAva.length - (i + 1) , newFilterAva.length ).join(","));
+        //     // console.log("newSearchAva", newSearchAva)
+        //     let removeList = await Word.find({ avaString: newSearchAva, word: searchChar, hejaCounter: rhymeHeja }).select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter');
+        //     for(let j = 0; j < removeList.length; j++){
+        //         words = words.filter(word => {
+        //             return word.id !== removeList[j].id
+        //         })
+        //     }
+        // }
 
         if(professional) words = this.wordPostProcessing(words, w.heja, w.ava)
 
