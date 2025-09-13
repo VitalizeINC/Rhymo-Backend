@@ -243,6 +243,31 @@ class wordManageController extends controller {
     }
 
 
+    async getTraditionalRhymes(req, res, next) {
+        let id = req.query.id
+        let page = parseInt(req.query.page) || 1
+        let limit = parseInt(req.query.limit) || 10
+        let word = await Word.findById(id)
+        let partsNumber = req.query.partsNumber || 1
+        if(partsNumber == -1) partsNumber = 1
+        let endsWith = word.fullWord.split("").slice(word.fullWord.length - partsNumber, word.fullWord.length).join("")
+        console.log("endsWith", endsWith)
+        let rhymes = await this.ryhmFinding(word, word.ava.join(","), 1, false, page, limit, endsWith)
+        let vajs = word.fullWord.split("")
+        
+        let vajsFinal = vajs.map(v => {
+            if(v == String.fromCharCode(1614) || v == String.fromCharCode(1615) || v == String.fromCharCode(1616) || v == String.fromCharCode(1617)){
+                v = "—" + v
+            }
+            return v
+        })
+        rhymes.vajs = vajsFinal
+        rhymes.selectedWord = word
+        rhymes.highlight = [[word.fullWord.length - endsWith.length, word.fullWord.length - 1]]
+        res.status(200).json(rhymes)
+    }
+
+
     async getRhymes(req, res, next) {
         let filter = req.query.filter
         let id = req.query.id
@@ -272,7 +297,12 @@ class wordManageController extends controller {
         res.status(200).json(response)
     }
 
-    async ryhmFinding(w, f, n, professional=false, page=1, limit=10) {
+    async ryhmFinding(w, f, n, professional=true, page=1, limit=10, endsWith="") {
+        console.log(n)
+        let endsWithRegex = ""
+        if(endsWith){
+            endsWithRegex = new RegExp(`${endsWith}$`, 'u')
+        }
         let rhymeHeja = n
         let filterChar = []
         f.split(",").map(x =>
@@ -298,9 +328,19 @@ class wordManageController extends controller {
         // Fetch more words than needed to account for filtering
         // We'll fetch 3x the limit to ensure we have enough after filtering
         let fetchLimit = limit * 10
-        let words = await Word.find({ avaString: searchAva, word: searchChar, hejaCounter: rhymeHeja })
+        let words = []
+        if(!endsWith){
+            words = await Word.find({ avaString: searchAva, word: searchChar, hejaCounter: rhymeHeja })
             .select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter')
             .limit(fetchLimit);
+        }else{
+            const rx = new RegExp(`${avaQuery}\\s*$`, 'u');
+            console.log("searchFromLastAva", rx)
+            words = await Word.find({ avaString:rx, fullWord:endsWithRegex})
+            .select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter')
+            .limit(fetchLimit);
+        }
+        
         // Remove words with more than rhymeHeja from result
         // console.log("rhymeHeja", rhymeHeja, backupFilterAva.length)
         // for(let i = rhymeHeja; i < backupFilterAva.length; i++){

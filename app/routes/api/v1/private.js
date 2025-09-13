@@ -16,7 +16,8 @@ router.delete('/removeWord', authenticateUser.handle, wordManageController.remov
 router.post('/saveWords', authenticateUser.handle, wordManageController.saveWords);
 
 //Proccess
-router.get('/getRhymes', authenticateUser.handle, wordManageController.getRhymes);
+router.get('/getRhymes', wordManageController.getRhymes);
+router.get('/getTraditionalRhymes', wordManageController.getTraditionalRhymes)
 // router.get('/getPartsNumber', authenticateUser.handle, wordManageController.getPartsNumber);
 router.post('/getWordDetails', authenticateUser.handle, processController.getWordDetails);
 
