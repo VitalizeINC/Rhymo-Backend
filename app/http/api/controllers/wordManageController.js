@@ -263,10 +263,12 @@ class wordManageController extends controller {
         })
         rhymes.vajs = vajsFinal
         rhymes.selectedWord = word
+        // For traditional rhymes, highlight the ending part of each rhyme word
         for(let i = 0; i < rhymes.highlight.length; i++){
             let rhymeWordLength = rhymes.fullResponse[i].length
-            let offset = rhymeWordLength - endsWith.length
-            rhymes.highlight[i] = [rhymes.highlight[i][0] + offset, rhymes.highlight[i][1] + offset]
+            let highlightStart = rhymeWordLength - endsWith.length
+            let highlightEnd = rhymeWordLength - 1
+            rhymes.highlight[i] = [highlightStart, highlightEnd]
         }
         res.status(200).json(rhymes)
     }
