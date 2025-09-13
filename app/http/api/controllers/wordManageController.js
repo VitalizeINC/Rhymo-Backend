@@ -254,14 +254,7 @@ class wordManageController extends controller {
         console.log("endsWith", endsWith)
         let rhymes = await this.ryhmFinding(word, word.ava.join(","), 1, false, page, limit, endsWith)
         let vajs = word.fullWord.split("")
-        
-        let vajsFinal = vajs.map(v => {
-            if(v == String.fromCharCode(1614) || v == String.fromCharCode(1615) || v == String.fromCharCode(1616) || v == String.fromCharCode(1617)){
-                v = "—" + v
-            }
-            return v
-        })
-        rhymes.vajs = vajsFinal
+        rhymes.vajs = vajs
         rhymes.selectedWord = word
         // For traditional rhymes, highlight the ending part of each rhyme word
         for(let i = 0; i < rhymes.highlight.length; i++){
