@@ -264,7 +264,9 @@ class wordManageController extends controller {
         rhymes.vajs = vajsFinal
         rhymes.selectedWord = word
         for(let i = 0; i < rhymes.highlight.length; i++){
-            rhymes.highlight[i] = [rhymes.highlight[i][0] + word.fullWord.length - endsWith.length, rhymes.highlight[i][1] + word.fullWord.length - endsWith.length]
+            let rhymeWordLength = rhymes.fullResponse[i].length
+            let offset = rhymeWordLength - endsWith.length
+            rhymes.highlight[i] = [rhymes.highlight[i][0] + offset, rhymes.highlight[i][1] + offset]
         }
         res.status(200).json(rhymes)
     }
