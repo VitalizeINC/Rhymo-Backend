@@ -336,7 +336,7 @@ class wordManageController extends controller {
         }else{
             const rx = new RegExp(`${avaQuery}\\s*$`, 'u');
             console.log("searchFromLastAva", rx)
-            words = await Word.find({ avaString:rx, fullWord:endsWithRegex})
+            words = await Word.find({ avaString:rx, fullWord:endsWithRegex, word: searchChar})
             .select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter')
             .limit(fetchLimit);
         }
