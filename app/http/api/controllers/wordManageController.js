@@ -249,10 +249,11 @@ class wordManageController extends controller {
         let limit = parseInt(req.query.limit) || 10
         let word = await Word.findById(id)
         let partsNumber = req.query.partsNumber || 1
+        let filter = req.query.filter || ""
         if(partsNumber == -1) partsNumber = 1
         let endsWith = word.fullWord.split("").slice(word.fullWord.length - partsNumber, word.fullWord.length).join("")
         console.log("endsWith", endsWith)
-        let rhymes = await this.ryhmFinding(word, word.ava.join(","), 1, false, page, limit, endsWith)
+        let rhymes = await this.ryhmFinding(word, filter, 1, false, page, limit, endsWith)
         let vajs = word.fullWord.split("")
         rhymes.vajs = vajs
         rhymes.selectedWord = word
