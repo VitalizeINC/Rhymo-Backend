@@ -251,10 +251,20 @@ class authController extends controller {
                 });
             }
 
-            // Validate password strength (minimum 6 characters)
-            if (password.length < 6) {
+            // Validate password strength (minimum 8 characters, must contain digit and letter)
+            if (password.length < 8) {
                 return res.status(400).json({ 
-                    error: 'Password must be at least 6 characters long' 
+                    error: 'Password must be at least 8 characters long' 
+                });
+            }
+            
+            // Check if password contains at least one digit and one letter
+            const hasDigit = /\d/.test(password);
+            const hasLetter = /[a-zA-Z]/.test(password);
+            
+            if (!hasDigit || !hasLetter) {
+                return res.status(400).json({ 
+                    error: 'Password must contain at least one digit and one letter' 
                 });
             }
 
@@ -374,10 +384,20 @@ class authController extends controller {
                 });
             }
 
-            // Validate password strength
-            if (newPassword.length < 6) {
+            // Validate password strength (minimum 8 characters, must contain digit and letter)
+            if (newPassword.length < 8) {
                 return res.status(400).json({ 
-                    error: 'Password must be at least 6 characters long' 
+                    error: 'Password must be at least 8 characters long' 
+                });
+            }
+            
+            // Check if password contains at least one digit and one letter
+            const hasDigit = /\d/.test(newPassword);
+            const hasLetter = /[a-zA-Z]/.test(newPassword);
+            
+            if (!hasDigit || !hasLetter) {
+                return res.status(400).json({ 
+                    error: 'Password must contain at least one digit and one letter' 
                 });
             }
 
