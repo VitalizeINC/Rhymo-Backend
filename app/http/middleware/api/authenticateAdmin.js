@@ -11,6 +11,7 @@ class AuthenticateAdmin extends middleware {
         token = token.split(" ")[1]
         let user = jwt.verify(token, config.jwt.secret_key);
         if (user && user.admin === true) {
+            req.user = user;
             return next();
         }
         return res.status(401).json("Unauthorized")
