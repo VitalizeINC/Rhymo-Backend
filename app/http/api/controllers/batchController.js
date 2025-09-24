@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import Batch from '../../../models/batch.js';
 import WordBatch from '../../../models/wordBatch.js';
 import processControllerInstance from './processController.js';
+import applyOrthographyFixes from '../../../helpers/wordBatchPreprocessor.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -458,9 +459,15 @@ class BatchController {
             for (const wordBatch of wordBatches) {
                 try {
                     // Create a mock request object for getWordDetails
+                    let processedWordBatch = applyOrthographyFixes(wordBatch.organizedGrapheme, {
+                        waw_o_exception_idx: wordBatch.wawOExceptionIdx || [],
+                        silent_waw_idx: wordBatch.silentWawIdx || [],
+                        spoken_A_grapheme_idx: wordBatch.spokenAGraphemeIdx || []
+                    });
+                    console.log('processedWordBatch', processedWordBatch);
                     const mockReq = {
                         body: {
-                            string: wordBatch.organizedGrapheme
+                            string: processedWordBatch
                         }
                     };
 

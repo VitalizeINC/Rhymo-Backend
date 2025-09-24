@@ -1,5 +1,8 @@
 import controller from './controller.js';
 import Word from '../../../models/word.js';
+import Batch from '../../../models/batch.js';
+import WordBatch from '../../../models/wordBatch.js';
+import applyOrthographyFixes from '../../../helpers/wordBatchPreprocessor.js';
 
 const longVowels = ['آ', 'و', 'ی', 'ا']
 const shortVowels = [String.fromCharCode(1614), String.fromCharCode(1615), String.fromCharCode(1616)]
@@ -202,6 +205,103 @@ class wordManageController extends controller {
         res.status(200).json({
             totalId: newWord._id
         })
+    }
+
+    async saveBatchWord(req, res, next) {
+        try {
+            let wordBatchId = req.body.wordBatchId
+            let wordBatch = await WordBatch.findById(wordBatchId)
+            if (!wordBatch) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Word batch not found'
+                });
+            }
+            let organizedGrapheme = wordBatch.organizedGrapheme
+            let processedPhoneme = wordBatch.processedPhonemes
+            let processedHeja = wordBatch.processedParts
+            let batchId = wordBatch.batch
+            let batchName = null // batchName is not available in WordBatch model
+
+            // Check if word already exists
+            const existingWord = await Word.findOne({ fullWord: organizedGrapheme });
+            if (existingWord) {
+                await WordBatch.findByIdAndUpdate(wordBatchId, {
+                    addedToWords: true
+                });
+                return res.status(200).json({
+                    success: true,
+                    message: 'Word already exists',
+                    wordId: existingWord._id,
+                    isNew: false
+                });
+            }
+
+            // Create space and nimFaseleh positions
+            let spacePositions = []
+            let nimFaselehPositions = []
+            for(let i = 0; i < organizedGrapheme.length; i++){
+                if(organizedGrapheme[i] === " "){
+                    spacePositions.push(i);
+                }
+                if(organizedGrapheme[i] === String.fromCharCode(0x200C)){
+                    nimFaselehPositions.push(i);
+                }
+            }
+
+            const fullWord = organizedGrapheme.replace(/\u200C/g, " ");
+            const solidWord = this.solidWord(fullWord);
+
+            // Create the new word
+            const newWord = new Word({
+                fullWord: organizedGrapheme,
+                fullWordWithNimFaseleh: organizedGrapheme,
+                word: solidWord,
+                heja: processedHeja, // Using phoneme array as heja
+                avaString: processedPhoneme.join(","),
+                ava: processedPhoneme,
+                hejaCounter: processedHeja.length,
+                spacePositions: spacePositions,
+                nimFaselehPositions: nimFaselehPositions,
+                // Batch tracking fields
+                addedBy: req.user?.id || null,
+                batchId: batchId || null,
+                batchName: batchName || null,
+                wordBatchId: wordBatchId || null,
+                approved: true, // Auto-approve batch words
+                approvedBy: req.user?.id || null,
+                approvedAt: new Date()
+            });
+
+            await newWord.save();
+
+            // Update the WordBatch record if wordBatchId is provided
+            if (wordBatchId) {
+                await WordBatch.findByIdAndUpdate(wordBatchId, {
+                    status: 'processed',
+                    processedAt: new Date()
+                });
+            }
+            await WordBatch.findByIdAndUpdate(wordBatchId, {
+                addedToWord: true
+            });
+
+            res.status(201).json({
+                success: true,
+                message: 'Word created successfully from batch',
+                wordId: newWord._id,
+                isNew: true,
+                processedGrapheme: organizedGrapheme
+            });
+
+        } catch (error) {
+            console.error('Error saving batch word:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error creating word from batch',
+                error: error.message
+            });
+        }
     }
 
     solidWord(s) {

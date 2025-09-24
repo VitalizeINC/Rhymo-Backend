@@ -10,6 +10,7 @@ router.get('/admin/checkToken', (req, res) => { res.status(200).json() });
 
 // Word management routes
 router.get('/admin/getWords', wordManageController.getWords);
+router.post('/admin/save-batch-word', wordManageController.saveBatchWord);
 router.put('/admin/updateWord', wordManageController.updateWord);
 router.delete('/admin/deleteWord', wordManageController.deleteWord);
 router.put('/admin/updateWordStatus', wordManageController.updateWordStatus);

@@ -71,6 +71,10 @@ const wordBatchSchema = new Schema({
     processedPhonemes: { 
         type: [String], 
         default: [] 
+    },
+    addedToWords: { 
+        type: Boolean, 
+        default: false 
     }
 }, { 
     timestamps: true, 

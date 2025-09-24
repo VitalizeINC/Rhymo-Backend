@@ -21,6 +21,11 @@ const wordSchema = Schema({
     rejectedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     rejectedAt: { type: Date, default: null },
     rejectedReason: { type: String, default: null },
+    // Batch word tracking fields
+    addedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    batchId: { type: Schema.Types.ObjectId, ref: 'Batch', default: null },
+    batchName: { type: String, default: null },
+    wordBatchId: { type: Schema.Types.ObjectId, ref: 'WordBatch', default: null },
 }, { timestamps: true, toJSON: { virtuals: true } })
 
 wordSchema.plugin(mongoosePaginate);
