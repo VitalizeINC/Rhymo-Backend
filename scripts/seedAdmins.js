@@ -32,20 +32,31 @@ async function seedAdmins() {
         //     console.log(`Cleared existing admin: ${adminData.email}`);
         // }
 
-        // Create new admin users
+        // Create or update admin users
         for (const adminData of defaultAdmins) {
-            // Create new admin user
-            const newAdmin = new User({
-                name: adminData.name,
-                email: adminData.email,
-                password: adminData.password,
-                admin: adminData.admin,
-                emailVerified: adminData.emailVerified
-            });
+            // Check if user already exists
+            const existingUser = await User.findOne({ email: adminData.email });
+            
+            if (existingUser) {
+                // User exists, just set admin flag to true
+                existingUser.admin = true;
+                existingUser.emailVerified = adminData.emailVerified;
+                await existingUser.save();
+                console.log(`Updated existing user to admin: ${adminData.email}`);
+            } else {
+                // User doesn't exist, create new admin user
+                const newAdmin = new User({
+                    name: adminData.name,
+                    email: adminData.email,
+                    password: adminData.password,
+                    admin: adminData.admin,
+                    emailVerified: adminData.emailVerified
+                });
 
-            // Don't set passwordEncrypted flag - let the pre-save middleware hash the password
-            await newAdmin.save();
-            console.log(`Created admin user: ${adminData.email}`);
+                // Don't set passwordEncrypted flag - let the pre-save middleware hash the password
+                await newAdmin.save();
+                console.log(`Created new admin user: ${adminData.email}`);
+            }
         }
 
         console.log('Admin seeding completed successfully');
