@@ -6,14 +6,16 @@ import batchController from '../../../http/api/controllers/batchController.js';
 import uploadMiddleware from '../../../http/middleware/api/uploadMiddleware.js';
 import authenticateAdmin from '../../../http/middleware/api/authenticateAdmin.js';
 
-router.get('/admin/checkToken', (req, res) => { res.status(200).json() });
+
+
+router.get('/admin/checkToken', authenticateAdmin.handle, (req, res) => { res.status(200).json() });
 
 // Word management routes
-router.get('/admin/getWords', wordManageController.getWords);
-router.post('/admin/save-batch-word', wordManageController.saveBatchWord);
-router.put('/admin/updateWord', wordManageController.updateWord);
-router.delete('/admin/deleteWord', wordManageController.deleteWord);
-router.put('/admin/updateWordStatus', wordManageController.updateWordStatus);
+router.get('/admin/getWords', authenticateAdmin.handle, wordManageController.getWords);
+router.post('/admin/save-batch-word', authenticateAdmin.handle, wordManageController.saveBatchWord);
+    router.put('/admin/updateWord', authenticateAdmin.handle, wordManageController.updateWord);
+router.delete('/admin/deleteWord', authenticateAdmin.handle, wordManageController.deleteWord);
+router.put('/admin/updateWordStatus', authenticateAdmin.handle, wordManageController.updateWordStatus);
 
 // Batch upload routes
 router.post('/admin/upload-batch', 
@@ -44,7 +46,7 @@ router.post('/admin/batches/:batchId/process-words',
 
 router.delete('/admin/batches/:batchId', 
     authenticateAdmin.handle, 
-    batchController.deleteBatch
+    batchController.deleteBatch,
 );
 
 export default router;
