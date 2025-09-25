@@ -10,6 +10,7 @@ class AuthenticateAdmin extends middleware {
         }
         token = token.split(" ")[1]
         let user = jwt.verify(token, config.jwt.secret_key);
+        console.log(user, "user",user.admin)
         if (user && user.admin === true) {
             req.user = user;
             return next();
