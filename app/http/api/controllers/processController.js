@@ -81,7 +81,8 @@ class processController extends controller {
                     ava: totalPhonemes,
                     hejaCounter: totalPhonemes.length,
                     spacePositions: spacePositions,
-                    nimFaselehPositions: nimFaselehPositions
+                    nimFaselehPositions: nimFaselehPositions,
+                    level: 1 // Default level
                 })
                 await newWord.save()
                 totalId = newWord._id

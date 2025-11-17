@@ -17,7 +17,20 @@ class wordManageController extends controller {
     async updateWordStatus(req, res, next) {
         let id = req.query.id
         let approved = req.body.approved
-        await Word.updateOne({_id: id}, {approved: approved, approvedBy: req.body.approvedBy, approvedAt: new Date()})  
+        let level = req.body.level !== undefined ? parseInt(req.body.level) : undefined
+        
+        let updateData = {
+            approved: approved, 
+            approvedBy: req.body.approvedBy, 
+            approvedAt: new Date()
+        }
+        
+        // Only update level if provided
+        if (level !== undefined && !isNaN(level)) {
+            updateData.level = level
+        }
+        
+        await Word.updateOne({_id: id}, updateData)  
         res.status(200).json("Word status updated successfully")
     }
     async updateWord(req, res, next) {
@@ -57,6 +70,11 @@ class wordManageController extends controller {
                 avaString: req.body.ava.join(" - "),
                 hejaCounter: req.body.heja.length
             }
+        }
+        
+        // Update level if provided
+        if (req.body.level !== undefined && !isNaN(parseInt(req.body.level))) {
+            updateSchema.$set.level = parseInt(req.body.level);
         }
         console.log("updateSchema", updateSchema)
         try {
@@ -154,7 +172,8 @@ class wordManageController extends controller {
                 ava: newWordParts[i].phonemes,
                 hejaCounter: newWordParts[i].phonemes.length,
                 spacePositions: spacePositions,
-                nimFaselehPositions: nimFaselehPositions
+                nimFaselehPositions: nimFaselehPositions,
+                level: 1 // Default level
             })
             await newWordPart.save();
             wordDetails = [...wordDetails, ...newWordParts[i].parts]
@@ -199,7 +218,8 @@ class wordManageController extends controller {
             spacePositions: spacePositions,
             nimFaselehPositions: nimFaselehPositions,
             ava: phonemes,
-            hejaCounter: phonemes.length
+            hejaCounter: phonemes.length,
+            level: 1 // Default level
         })
         await newWord.save();
         res.status(200).json({
@@ -279,6 +299,9 @@ class wordManageController extends controller {
             const fullWord = organizedGrapheme.replace(/\u200C/g, " ");
             const solidWord = this.solidWord(fullWord);
 
+            // Get level from request body, default to 1 if not provided
+            const level = req.body.level !== undefined ? parseInt(req.body.level) : 1;
+
             // Create the new word
             const newWord = new Word({
                 fullWord: organizedGrapheme,
@@ -297,7 +320,8 @@ class wordManageController extends controller {
                 wordBatchId: wordBatchId || null,
                 approved: true, // Auto-approve batch words
                 approvedBy: req.user?.id || null,
-                approvedAt: new Date()
+                approvedAt: new Date(),
+                level: level // Word level/category
             });
 
             await newWord.save();

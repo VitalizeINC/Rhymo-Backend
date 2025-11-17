@@ -26,6 +26,8 @@ const wordSchema = Schema({
     batchId: { type: Schema.Types.ObjectId, ref: 'Batch', default: null },
     batchName: { type: String, default: null },
     wordBatchId: { type: Schema.Types.ObjectId, ref: 'WordBatch', default: null },
+    // Word level/category
+    level: { type: Number, default: 1, required: true },
 }, { timestamps: true, toJSON: { virtuals: true } })
 
 wordSchema.plugin(mongoosePaginate);
