@@ -21,8 +21,8 @@ class wordManageController extends controller {
         
         let updateData = {
             approved: approved, 
-            approvedBy: req.body.approvedBy, 
-            approvedAt: new Date()
+            approvedBy: approved ? (req.user?.id || null) : null, 
+            approvedAt: approved ? new Date() : null
         }
         
         // Only update level if provided
