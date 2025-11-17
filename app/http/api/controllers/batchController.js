@@ -6,6 +6,7 @@ import { createInterface } from 'readline';
 import mongoose from 'mongoose';
 import Batch from '../../../models/batch.js';
 import WordBatch from '../../../models/wordBatch.js';
+import Word from '../../../models/word.js';
 import processControllerInstance from './processController.js';
 import applyOrthographyFixes from '../../../helpers/wordBatchPreprocessor.js';
 

@@ -6,13 +6,13 @@ const router = express.Router();
 
 
 
-import AuthenticateAdmin from '../../../http/middleware/api/authenticateAdmin.js';
+
 import forEveryOne from './public.js';
 import forUser from './private.js';
 import forAdmin from './admin.js';
 
 router.use(forEveryOne);
 router.use(forUser);
-router.use(AuthenticateAdmin.handle, forAdmin);
+router.use(forAdmin);
 
 export default router;

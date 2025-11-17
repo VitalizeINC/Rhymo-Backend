@@ -217,21 +217,48 @@ class wordManageController extends controller {
                     message: 'Word batch not found'
                 });
             }
+
+            // Check if this word has already been added from this batch
+            if (wordBatch.addedToWords) {
+                // Find the word that was already added
+                const alreadyAddedWord = await Word.findOne({ 
+                    $or: [
+                        { fullWord: wordBatch.organizedGrapheme },
+                        { wordBatchId: wordBatchId }
+                    ]
+                });
+                
+                if (alreadyAddedWord) {
+                    return res.status(409).json({
+                        success: false,
+                        message: 'This word has already been added from this batch',
+                        wordId: alreadyAddedWord._id,
+                        isNew: false
+                    });
+                } else {
+                    // If addedToWords is true but word not found, reset the flag
+                    await WordBatch.findByIdAndUpdate(wordBatchId, {
+                        addedToWords: false
+                    });
+                }
+            }
+
             let organizedGrapheme = wordBatch.organizedGrapheme
             let processedPhoneme = wordBatch.processedPhonemes
             let processedHeja = wordBatch.processedParts
             let batchId = wordBatch.batch
             let batchName = null // batchName is not available in WordBatch model
 
-            // Check if word already exists
+            // Check if word already exists in database
             const existingWord = await Word.findOne({ fullWord: organizedGrapheme });
             if (existingWord) {
+                // Mark this batch word as added even though word already existed
                 await WordBatch.findByIdAndUpdate(wordBatchId, {
                     addedToWords: true
                 });
                 return res.status(200).json({
                     success: true,
-                    message: 'Word already exists',
+                    message: 'Word already exists in database',
                     wordId: existingWord._id,
                     isNew: false
                 });
@@ -275,15 +302,11 @@ class wordManageController extends controller {
 
             await newWord.save();
 
-            // Update the WordBatch record if wordBatchId is provided
-            if (wordBatchId) {
-                await WordBatch.findByIdAndUpdate(wordBatchId, {
-                    status: 'processed',
-                    processedAt: new Date()
-                });
-            }
+            // Update the WordBatch record to mark it as added
             await WordBatch.findByIdAndUpdate(wordBatchId, {
-                addedToWord: true
+                status: 'processed',
+                processedAt: new Date(),
+                addedToWords: true
             });
 
             res.status(201).json({
