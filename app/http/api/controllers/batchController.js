@@ -617,7 +617,8 @@ class BatchController {
                         }
                     }
                     
-                    // Now process the full word (with nim faseleh)
+                    // Now process the full word (with nim faseleh) - BUT DON'T SAVE IT TO WORDS
+                    // We only need the processed data to update the WordBatch record
                     const mockReq = {
                         body: {
                             string: processedWordBatch
@@ -634,8 +635,15 @@ class BatchController {
                         })
                     };
 
-                    // Call getWordDetails for the full word
+                    // Call getWordDetails for the full word to get processing data
                     await processor.getWordDetails(mockReq, mockRes);
+
+                    // IMPORTANT: If getWordDetails saved the full word (because pass was true), DELETE IT
+                    // We don't want to save full words during batch processing, only individual parts
+                    if (processedData && processedData.pass && processedData.totalId) {
+                        await Word.findByIdAndDelete(processedData.totalId);
+                        console.log(`Removed full word "${processedWordBatch}" that was auto-saved during batch processing`);
+                    }
 
                     if (processedData && processedData.result) {
                         // Extract parts and phonemes from the result
