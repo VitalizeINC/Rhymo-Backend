@@ -36,62 +36,28 @@ class wordManageController extends controller {
     async updateWord(req, res, next) {
         let id = req.query.id
         let word = await Word.findById(id)
-        
-        // Get the input word (may contain spaces or nim faseleh)
-        let inputWord = req.body.fullWord
-        console.log("Input fullWord:", inputWord)
-        
-        // Pattern: "we save nim fasele as space"
-        // fullWord: always has spaces (nim faseleh converted to space) - this is the standardized/searchable version
-        // fullWordWithNimFaseleh: preserves the original input format (with nim faseleh where it originally was)
-        
-        // Preserve original input for fullWordWithNimFaseleh BEFORE any conversion
-        let fullWordWithNimFaseleh = inputWord;
-        
-        // Convert nim faseleh to space for fullWord (standard format)
-        let fullWord = inputWord.replace(/\u200C/g, " ");
-        console.log("Processed fullWord:", fullWord)
-        
-        // Calculate positions from the original input (before conversion)
-        // This way we capture both spaces and nim faseleh as they were in the input
+        let check = await Word.find({ fullWordWithNimFaseleh: req.body.fullWord })
+        if(check.length > 1){
+            return res.status(409).json("Word already exists")
+        }
+        let fullWord = req.body.fullWord
+        console.log("Input fullWord:", fullWord)
+        let fullWordWithNimFaseleh = fullWord
         let spacePositions = []
         let nimFaselehPositions = []
-        for(let i = 0; i < inputWord.length; i++){
-            if(inputWord[i] == " "){
-                spacePositions.push(i)
-            }
-            if(inputWord[i] == String.fromCharCode(0x200C)){
-                nimFaselehPositions.push(i)
-            }
-        }
-        
-        // After converting nim faseleh to space in fullWord, we need to recalculate space positions
-        // because the positions might shift if nim faseleh was converted
-        // Actually, positions should be calculated from fullWord (after conversion) for spacePositions
-        // and from fullWordWithNimFaseleh (original) for nimFaselehPositions
-        spacePositions = []
         for(let i = 0; i < fullWord.length; i++){
             if(fullWord[i] == " "){
                 spacePositions.push(i)
             }
         }
-        
-        // nimFaselehPositions should be calculated from fullWordWithNimFaseleh (original format)
-        nimFaselehPositions = []
-        for(let i = 0; i < fullWordWithNimFaseleh.length; i++){
-            if(fullWordWithNimFaseleh[i] == String.fromCharCode(0x200C)){
+        for(let i = 0; i < fullWord.length; i++){
+            if(fullWord[i] == String.fromCharCode(0x200C)){
                 nimFaselehPositions.push(i)
             }
         }
-        
-        // Check for duplicates using the converted fullWord
-        let check = await Word.find({ 
-            fullWord: fullWord,
-            _id: { $ne: id } // Exclude current word
-        })
-        if(check.length > 0){
-            return res.status(409).json("Word already exists")
-        }
+        // replace nimFaseleh with space
+        fullWord = fullWord.replace(/\u200C/g, " ");
+        console.log("Processed fullWord:", fullWord)
         let updateSchema = {
             $set: {
                 fullWord: fullWord,
@@ -173,37 +139,32 @@ class wordManageController extends controller {
                 phonemes = [...phonemes, ...word.ava]
                 continue
             }
-            // Get original part (may contain nim faseleh)
-            let originalPart = newWordParts[i].part;
-            let fullWordWithNimFaseleh = originalPart;
-            
-            // Calculate positions from original
-            let spacePositions = []
-            let nimFaselehPositions = []
-            for(let j = 0; j < originalPart.length; j++){
-                if(originalPart[j] == " "){
-                    spacePositions.push(j)
-                }
-                if(originalPart[j] == String.fromCharCode(0x200C)){
-                    nimFaselehPositions.push(j)
-                }
-            }
-            
-            // Convert nim faseleh to space for fullWord (standard format)
-            let fullWord = originalPart.replace(/\u200C/g, " ");
-            
-            // Check if word is already in database (using converted fullWord)
-            let check = await Word.findOne({ fullWord: fullWord })
+            // Check if word is already in database and not declared
+            let check = await Word.findOne({ fullWord: newWordParts[i].part })
             if (check) {
                 wordDetails = [...wordDetails, ...check.heja]
                 phonemes = [...phonemes, ...check.ava]
                 continue
             }
-            
+            let fullWord = newWordParts[i].part;
+            let fullWordWithNimFaseleh = newWordParts[i].part;
+            let spacePositions = []
+            for(let i = 0; i < fullWord.length; i++){
+                if(fullWord[i] == " "){
+                    spacePositions.push(i)
+                }
+            }
+            let nimFaselehPositions = []
+            for(let i = 0; i < fullWord.length; i++){
+                if(fullWord[i] == String.fromCharCode(0x200C)){
+                    nimFaselehPositions.push(i)
+                }
+            }
+            fullWord = fullWord.replace(/\u200C/g, " ");
             // console.log(fullWordWithNimFaseleh, "sssssssssssssssss1")
-            let solidWordPart = this.solidWord(fullWord)
+            let solidWordPart = this.solidWord(newWordParts[i].part)
             let newWordPart = new Word({
-                fullWord: fullWord,
+                fullWord: newWordParts[i].part,
                 fullWordWithNimFaseleh: fullWordWithNimFaseleh,
                 word: solidWordPart,
                 heja: newWordParts[i].parts,
@@ -279,12 +240,10 @@ class wordManageController extends controller {
 
             // Check if this word has already been added from this batch
             if (wordBatch.addedToWords) {
-                // Convert nim faseleh to space for comparison
-                const fullWordForCheck = wordBatch.organizedGrapheme.replace(/\u200C/g, " ");
                 // Find the word that was already added
                 const alreadyAddedWord = await Word.findOne({ 
                     $or: [
-                        { fullWord: fullWordForCheck },
+                        { fullWord: wordBatch.organizedGrapheme },
                         { wordBatchId: wordBatchId }
                     ]
                 });
@@ -310,11 +269,8 @@ class wordManageController extends controller {
             let batchId = wordBatch.batch
             let batchName = null // batchName is not available in WordBatch model
 
-            // Convert nim faseleh to space for fullWord (this is the standard format)
-            const fullWord = organizedGrapheme.replace(/\u200C/g, " ");
-
-            // Check if word already exists in database (using converted fullWord)
-            const existingWord = await Word.findOne({ fullWord: fullWord });
+            // Check if word already exists in database
+            const existingWord = await Word.findOne({ fullWord: organizedGrapheme });
             if (existingWord) {
                 // Mark this batch word as added even though word already existed
                 await WordBatch.findByIdAndUpdate(wordBatchId, {
@@ -328,7 +284,7 @@ class wordManageController extends controller {
                 });
             }
 
-            // Create space and nimFaseleh positions (calculated from original organizedGrapheme)
+            // Create space and nimFaseleh positions
             let spacePositions = []
             let nimFaselehPositions = []
             for(let i = 0; i < organizedGrapheme.length; i++){
@@ -340,16 +296,15 @@ class wordManageController extends controller {
                 }
             }
 
+            const fullWord = organizedGrapheme.replace(/\u200C/g, " ");
             const solidWord = this.solidWord(fullWord);
 
             // Get level from request body, default to 1 if not provided
             const level = req.body.level !== undefined ? parseInt(req.body.level) : 1;
 
             // Create the new word
-            // fullWord stores the version with spaces (nim faseleh converted to space)
-            // fullWordWithNimFaseleh stores the original with nim faseleh
             const newWord = new Word({
-                fullWord: fullWord,
+                fullWord: organizedGrapheme,
                 fullWordWithNimFaseleh: organizedGrapheme,
                 word: solidWord,
                 heja: processedHeja, // Using phoneme array as heja

@@ -12,7 +12,10 @@ class processController extends controller {
         let modalTitle = req.body.string
         // let {string, tashdid} = this.stringBootstrap(modalTitle)
         let string = modalTitle
-        let stringParts = string.split(' ')
+        // Split by both regular spaces and nim faseleh (half-space)
+        // First replace nim faseleh with space, then split
+        let stringForSplitting = string.replace(/\u200C/g, ' ')
+        let stringParts = stringForSplitting.split(' ').filter(part => part.trim() !== '')
         let totalParts = []
         let totalPhonemes = []
         let result = []
@@ -48,36 +51,64 @@ class processController extends controller {
                 schema.phonemes = phonemesPart
                 totalParts = [...totalParts, ...wordDetailsPart]
                 totalPhonemes = [...totalPhonemes, ...phonemesPart]
+                
+                // Save individual part if it doesn't exist in database
+                let partFullWord = stringParts[i]
+                let partFullWordWithNimFaseleh = stringParts[i]
+                let partSpacePositions = []
+                let partNimFaselehPositions = []
+                for(let j = 0; j < partFullWord.length; j++){
+                    if(partFullWord[j] == " "){
+                        partSpacePositions.push(j)
+                    }
+                    if(partFullWord[j] == String.fromCharCode(0x200C)){
+                        partNimFaselehPositions.push(j)
+                    }
+                }
+                partFullWord = partFullWord.replace(/\u200C/g, " ")
+                let checkPart = await Word.findOne({ fullWord: partFullWord })
+                if (!checkPart) {
+                    let partWord = this.solidWord(partFullWord)
+                    let newPartWord = new Word({
+                        fullWord: partFullWord,
+                        fullWordWithNimFaseleh: partFullWordWithNimFaseleh,
+                        word: partWord,
+                        heja: wordDetailsPart,
+                        avaString: phonemesPart.join(","),
+                        ava: phonemesPart,
+                        hejaCounter: phonemesPart.length,
+                        spacePositions: partSpacePositions,
+                        nimFaselehPositions: partNimFaselehPositions,
+                        level: 1 // Default level
+                    })
+                    await newPartWord.save()
+                }
             }
             result.push(schema)
         }
         let totalId = ""
         if (pass) {
-            let originalWord = modalTitle
-            let fullWordWithNimFaseleh = originalWord
-            
-            // Calculate positions from original
+            let fullWordWithNimFaseleh = modalTitle
+            let fullWord = modalTitle
             let spacePositions = []
-            let nimFaselehPositions = []
-            for(let i = 0; i < originalWord.length; i++){
-                if(originalWord[i] == " "){
+            for(let i = 0; i < fullWord.length; i++){
+                if(fullWord[i] == " "){
                     spacePositions.push(i)
                 }
-                if(originalWord[i] == String.fromCharCode(0x200C)){
+            }
+            let nimFaselehPositions = []
+            for(let i = 0; i < fullWord.length; i++){
+                if(fullWord[i] == String.fromCharCode(0x200C)){
                     nimFaselehPositions.push(i)
                 }
             }
-            
-            // Convert nim faseleh to space for fullWord (standard format)
-            let fullWord = originalWord.replace(/\u200C/g, " ")
-            
-            // Check if word already exists (using converted fullWord)
-            let check = await Word.findOne({ fullWord: fullWord })
+            fullWord = modalTitle.replace(/\u200C/g, " ")
+            let check = await Word.findOne({ fullWord: modalTitle })
             if (!check) {
                 
-                let word = this.solidWord(fullWord)
+                let word = this.solidWord(modalTitle)
                 let newWord = new Word({
-                    fullWord: fullWord,
+                    fullWord: modalTitle,
                     fullWordWithNimFaseleh: fullWordWithNimFaseleh,
                     word,
                     heja: totalParts,
