@@ -103,6 +103,9 @@ class wordManageController extends controller {
                   { fullWord: search },
                   { fullWord: { $not: /\s/ } }
                 ]
+              },
+              {
+                fullWordWithNimFaseleh: search
               }
             ]
           }).limit(10)
@@ -139,15 +142,18 @@ class wordManageController extends controller {
                 phonemes = [...phonemes, ...word.ava]
                 continue
             }
-            // Check if word is already in database and not declared
-            let check = await Word.findOne({ fullWord: newWordParts[i].part })
+            let fullWord = newWordParts[i].part;
+            let fullWordWithNimFaseleh = newWordParts[i].part;
+            // Replace nim faseleh with space for processing
+            let processedFullWord = fullWord.replace(/\u200C/g, " ");
+            
+            // Check if word is already in database (using processed fullWord)
+            let check = await Word.findOne({ fullWord: processedFullWord })
             if (check) {
                 wordDetails = [...wordDetails, ...check.heja]
                 phonemes = [...phonemes, ...check.ava]
                 continue
             }
-            let fullWord = newWordParts[i].part;
-            let fullWordWithNimFaseleh = newWordParts[i].part;
             let spacePositions = []
             for(let i = 0; i < fullWord.length; i++){
                 if(fullWord[i] == " "){
@@ -160,11 +166,12 @@ class wordManageController extends controller {
                     nimFaselehPositions.push(i)
                 }
             }
+            // Replace nim faseleh with space (consistent with updateWord)
             fullWord = fullWord.replace(/\u200C/g, " ");
             // console.log(fullWordWithNimFaseleh, "sssssssssssssssss1")
-            let solidWordPart = this.solidWord(newWordParts[i].part)
+            let solidWordPart = this.solidWord(fullWord)
             let newWordPart = new Word({
-                fullWord: newWordParts[i].part,
+                fullWord: fullWord,
                 fullWordWithNimFaseleh: fullWordWithNimFaseleh,
                 word: solidWordPart,
                 heja: newWordParts[i].parts,
@@ -269,8 +276,24 @@ class wordManageController extends controller {
             let batchId = wordBatch.batch
             let batchName = null // batchName is not available in WordBatch model
 
-            // Check if word already exists in database
-            const existingWord = await Word.findOne({ fullWord: organizedGrapheme });
+            // Create space and nimFaseleh positions
+            let spacePositions = []
+            let nimFaselehPositions = []
+            for(let i = 0; i < organizedGrapheme.length; i++){
+                if(organizedGrapheme[i] === " "){
+                    spacePositions.push(i);
+                }
+                if(organizedGrapheme[i] === String.fromCharCode(0x200C)){
+                    nimFaselehPositions.push(i);
+                }
+            }
+
+            // Replace nim faseleh with space (consistent with updateWord)
+            const fullWord = organizedGrapheme.replace(/\u200C/g, " ");
+            const solidWord = this.solidWord(fullWord);
+
+            // Check if word already exists in database (using processed fullWord)
+            const existingWord = await Word.findOne({ fullWord: fullWord });
             if (existingWord) {
                 // Mark this batch word as added even though word already existed
                 await WordBatch.findByIdAndUpdate(wordBatchId, {
@@ -284,27 +307,12 @@ class wordManageController extends controller {
                 });
             }
 
-            // Create space and nimFaseleh positions
-            let spacePositions = []
-            let nimFaselehPositions = []
-            for(let i = 0; i < organizedGrapheme.length; i++){
-                if(organizedGrapheme[i] === " "){
-                    spacePositions.push(i);
-                }
-                if(organizedGrapheme[i] === String.fromCharCode(0x200C)){
-                    nimFaselehPositions.push(i);
-                }
-            }
-
-            const fullWord = organizedGrapheme.replace(/\u200C/g, " ");
-            const solidWord = this.solidWord(fullWord);
-
             // Get level from request body, default to 1 if not provided
             const level = req.body.level !== undefined ? parseInt(req.body.level) : 1;
 
             // Create the new word
             const newWord = new Word({
-                fullWord: organizedGrapheme,
+                fullWord: fullWord,
                 fullWordWithNimFaseleh: organizedGrapheme,
                 word: solidWord,
                 heja: processedHeja, // Using phoneme array as heja
