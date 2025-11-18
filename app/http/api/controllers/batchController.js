@@ -479,23 +479,77 @@ class BatchController {
                         // Process each part separately to save them as individual words
                         for (const part of wordParts) {
                             if (part.trim()) {
-                                const partMockReq = {
-                                    body: {
-                                        string: part.trim()
-                                    }
-                                };
+                                const trimmedPart = part.trim();
                                 
-                                let partProcessedData = null;
-                                const partMockRes = {
-                                    status: () => ({
-                                        json: (data) => {
-                                            partProcessedData = data;
+                                // Check if this part already exists in DB
+                                let existingWord = await Word.findOne({ fullWord: trimmedPart });
+                                
+                                if (!existingWord) {
+                                    // Process the part to get its details
+                                    const partMockReq = {
+                                        body: {
+                                            string: trimmedPart
                                         }
-                                    })
-                                };
-                                
-                                // Process each part - this will save it as a word if not in DB
-                                await processor.getWordDetails(partMockReq, partMockRes);
+                                    };
+                                    
+                                    let partProcessedData = null;
+                                    const partMockRes = {
+                                        status: () => ({
+                                            json: (data) => {
+                                                partProcessedData = data;
+                                            }
+                                        })
+                                    };
+                                    
+                                    // Process each part to get heja and phonemes
+                                    await processor.getWordDetails(partMockReq, partMockRes);
+                                    
+                                    // If the part was processed and has data, save it manually
+                                    if (partProcessedData && partProcessedData.result && partProcessedData.result.length > 0) {
+                                        const partResult = partProcessedData.result[0];
+                                        
+                                        // Double-check it's not in DB (might have been added by getWordDetails if pass was true)
+                                        existingWord = await Word.findOne({ fullWord: trimmedPart });
+                                        
+                                        if (!existingWord && partResult.parts && partResult.parts.length > 0) {
+                                            // Calculate space and nim faseleh positions for this part
+                                            let spacePositions = [];
+                                            let nimFaselehPositions = [];
+                                            for(let i = 0; i < trimmedPart.length; i++){
+                                                if(trimmedPart[i] === " "){
+                                                    spacePositions.push(i);
+                                                }
+                                                if(trimmedPart[i] === nimFaselehChar){
+                                                    nimFaselehPositions.push(i);
+                                                }
+                                            }
+                                            
+                                            // Create solid word (remove diacritics)
+                                            const solidWord = processor.solidWord(trimmedPart);
+                                            
+                                            // Save the individual part as a word
+                                            const newPartWord = new Word({
+                                                fullWord: trimmedPart,
+                                                fullWordWithNimFaseleh: trimmedPart,
+                                                word: solidWord,
+                                                heja: partResult.parts,
+                                                avaString: partResult.phonemes.join(","),
+                                                ava: partResult.phonemes,
+                                                hejaCounter: partResult.phonemes.length,
+                                                spacePositions: spacePositions,
+                                                nimFaselehPositions: nimFaselehPositions,
+                                                level: 1,
+                                                addedBy: req.user?.id || null,
+                                                batchId: batchId || null,
+                                                batchName: null,
+                                                approved: false
+                                            });
+                                            
+                                            await newPartWord.save();
+                                            console.log(`Saved individual part: ${trimmedPart}`);
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
