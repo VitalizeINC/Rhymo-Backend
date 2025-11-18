@@ -53,27 +53,31 @@ class processController extends controller {
         }
         let totalId = ""
         if (pass) {
-            let fullWordWithNimFaseleh = modalTitle
-            let fullWord = modalTitle
+            let originalWord = modalTitle
+            let fullWordWithNimFaseleh = originalWord
+            
+            // Calculate positions from original
             let spacePositions = []
-            for(let i = 0; i < fullWord.length; i++){
-                if(fullWord[i] == " "){
+            let nimFaselehPositions = []
+            for(let i = 0; i < originalWord.length; i++){
+                if(originalWord[i] == " "){
                     spacePositions.push(i)
                 }
-            }
-            let nimFaselehPositions = []
-            for(let i = 0; i < fullWord.length; i++){
-                if(fullWord[i] == String.fromCharCode(0x200C)){
+                if(originalWord[i] == String.fromCharCode(0x200C)){
                     nimFaselehPositions.push(i)
                 }
             }
-            fullWord = modalTitle.replace(/\u200C/g, " ")
-            let check = await Word.findOne({ fullWord: modalTitle })
+            
+            // Convert nim faseleh to space for fullWord (standard format)
+            let fullWord = originalWord.replace(/\u200C/g, " ")
+            
+            // Check if word already exists (using converted fullWord)
+            let check = await Word.findOne({ fullWord: fullWord })
             if (!check) {
                 
-                let word = this.solidWord(modalTitle)
+                let word = this.solidWord(fullWord)
                 let newWord = new Word({
-                    fullWord: modalTitle,
+                    fullWord: fullWord,
                     fullWordWithNimFaseleh: fullWordWithNimFaseleh,
                     word,
                     heja: totalParts,
