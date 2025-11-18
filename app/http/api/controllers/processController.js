@@ -12,10 +12,7 @@ class processController extends controller {
         let modalTitle = req.body.string
         // let {string, tashdid} = this.stringBootstrap(modalTitle)
         let string = modalTitle
-        // Split by both regular spaces and nim faseleh (half-space)
-        // First replace nim faseleh with space, then split
-        let stringForSplitting = string.replace(/\u200C/g, ' ')
-        let stringParts = stringForSplitting.split(' ').filter(part => part.trim() !== '')
+        let stringParts = string.split(' ')
         let totalParts = []
         let totalPhonemes = []
         let result = []
@@ -51,38 +48,6 @@ class processController extends controller {
                 schema.phonemes = phonemesPart
                 totalParts = [...totalParts, ...wordDetailsPart]
                 totalPhonemes = [...totalPhonemes, ...phonemesPart]
-                
-                // Save individual part if it doesn't exist in database
-                let partFullWord = stringParts[i]
-                let partFullWordWithNimFaseleh = stringParts[i]
-                let partSpacePositions = []
-                let partNimFaselehPositions = []
-                for(let j = 0; j < partFullWord.length; j++){
-                    if(partFullWord[j] == " "){
-                        partSpacePositions.push(j)
-                    }
-                    if(partFullWord[j] == String.fromCharCode(0x200C)){
-                        partNimFaselehPositions.push(j)
-                    }
-                }
-                partFullWord = partFullWord.replace(/\u200C/g, " ")
-                let checkPart = await Word.findOne({ fullWord: partFullWord })
-                if (!checkPart) {
-                    let partWord = this.solidWord(partFullWord)
-                    let newPartWord = new Word({
-                        fullWord: partFullWord,
-                        fullWordWithNimFaseleh: partFullWordWithNimFaseleh,
-                        word: partWord,
-                        heja: wordDetailsPart,
-                        avaString: phonemesPart.join(","),
-                        ava: phonemesPart,
-                        hejaCounter: phonemesPart.length,
-                        spacePositions: partSpacePositions,
-                        nimFaselehPositions: partNimFaselehPositions,
-                        level: 1 // Default level
-                    })
-                    await newPartWord.save()
-                }
             }
             result.push(schema)
         }

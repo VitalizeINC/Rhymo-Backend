@@ -466,6 +466,41 @@ class BatchController {
                         spoken_A_grapheme_idx: wordBatch.spokenAGraphemeIdx || []
                     });
                     console.log('processedWordBatch', processedWordBatch);
+                    
+                    // Check if word contains nim faseleh (0x200C)
+                    const nimFaselehChar = String.fromCharCode(0x200C);
+                    const hasNimFaseleh = processedWordBatch.includes(nimFaselehChar);
+                    
+                    // If word contains nim faseleh, partition it into separate words
+                    if (hasNimFaseleh) {
+                        // Split by nim faseleh to get individual parts
+                        const wordParts = processedWordBatch.split(nimFaselehChar);
+                        
+                        // Process each part separately to save them as individual words
+                        for (const part of wordParts) {
+                            if (part.trim()) {
+                                const partMockReq = {
+                                    body: {
+                                        string: part.trim()
+                                    }
+                                };
+                                
+                                let partProcessedData = null;
+                                const partMockRes = {
+                                    status: () => ({
+                                        json: (data) => {
+                                            partProcessedData = data;
+                                        }
+                                    })
+                                };
+                                
+                                // Process each part - this will save it as a word if not in DB
+                                await processor.getWordDetails(partMockReq, partMockRes);
+                            }
+                        }
+                    }
+                    
+                    // Now process the full word (with nim faseleh)
                     const mockReq = {
                         body: {
                             string: processedWordBatch
@@ -482,7 +517,7 @@ class BatchController {
                         })
                     };
 
-                    // Call getWordDetails
+                    // Call getWordDetails for the full word
                     await processor.getWordDetails(mockReq, mockRes);
 
                     if (processedData && processedData.result) {
