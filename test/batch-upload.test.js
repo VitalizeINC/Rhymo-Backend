@@ -1,20 +1,22 @@
-import chai from 'chai';
-import chaiHttp from 'supertest';
-import app from '../app/index.js';
+import { expect } from 'chai';
+import request from 'supertest';
+import Application from '../app/index.js';
 import Batch from '../app/models/batch.js';
 import WordBatch from '../app/models/wordBatch.js';
 import User from '../app/models/user.js';
 import fs from 'fs';
 import path from 'path';
 
-const expect = chai.expect;
-const request = chaiHttp(app);
+let app;
 
 describe('Batch Upload API', () => {
     let adminToken;
     let adminUser;
 
     before(async () => {
+        // Initialize the application
+        const application = new Application();
+        app = application.app;
         // Create a test admin user
         adminUser = new User({
             name: 'Test Admin',

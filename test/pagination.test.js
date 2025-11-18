@@ -1,8 +1,15 @@
-const request = require('supertest');
-const { expect } = require('chai');
-const app = require('../app/index.js'); // Adjust path as needed
+import request from 'supertest';
+import { expect } from 'chai';
+import Application from '../app/index.js';
+
+let app;
 
 describe('Rhyme Pagination Tests', () => {
+    before(async () => {
+        const application = new Application();
+        app = application.app;
+    });
+
     it('should return paginated results with correct metadata', async () => {
         // This test assumes you have a word with ID in your database
         // You'll need to replace 'test-word-id' with an actual word ID from your database
