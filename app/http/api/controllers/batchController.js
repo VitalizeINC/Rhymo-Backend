@@ -438,6 +438,17 @@ class BatchController {
                 });
             }
 
+            // Helper function to show character codes for debugging
+            const showCharCodes = (str, label = '') => {
+                const codes = [];
+                for (let i = 0; i < str.length; i++) {
+                    const char = str[i];
+                    const code = char.charCodeAt(0);
+                    codes.push(`${char} (U+${code.toString(16).toUpperCase().padStart(4, '0')})`);
+                }
+                return `${label}: [${codes.join(', ')}]`;
+            };
+
             // Get all WordBatch records (pending and processed) for reprocessing
             // We'll skip only those that have approved words
             const wordBatches = await WordBatch.find({ 
@@ -451,6 +462,23 @@ class BatchController {
                     message: 'No records to process',
                     processedCount: 0
                 });
+            }
+
+            console.log(`\n=== BATCH PROCESSING START ===`);
+            console.log(`Total WordBatch records to process: ${wordBatches.length}`);
+            
+            // Search for specific word if needed (for debugging)
+            const searchWord = "مَسموم‌کُنَندِه";
+            const foundWord = wordBatches.find(wb => 
+                wb.organizedGrapheme.includes("مَسموم") && wb.organizedGrapheme.includes("کُنَندِه")
+            );
+            
+            if (foundWord) {
+                console.log(`\n🔍 FOUND TARGET WORD: "${foundWord.organizedGrapheme}"`);
+                console.log(`   WordBatch ID: ${foundWord._id}, Status: ${foundWord.status}`);
+                const nimFaselehChar = String.fromCharCode(0x200C);
+                const hasNimFaseleh = foundWord.organizedGrapheme.includes(nimFaselehChar);
+                console.log(`   Has nim faseleh (U+200C): ${hasNimFaseleh}`);
             }
 
             const processor = processControllerInstance;
@@ -467,9 +495,13 @@ class BatchController {
             // Process each WordBatch record
             for (const wordBatch of wordBatches) {
                 try {
-                    console.log(`\n=== Processing WordBatch ID: ${wordBatch._id} ===`);
-                    console.log(`Original organizedGrapheme: "${wordBatch.organizedGrapheme}"`);
-                    console.log(`Current status: ${wordBatch.status}`);
+                    // Check if this is the target word for detailed logging
+                    const isTargetWord = wordBatch.organizedGrapheme.includes("مَسموم") && 
+                                       wordBatch.organizedGrapheme.includes("کُنَندِه");
+                    
+                    if (isTargetWord) {
+                        console.log(`\n🎯 === PROCESSING TARGET WORD: "${wordBatch.organizedGrapheme}" ===`);
+                    }
                     
                     // Check if this word is already approved - if so, skip it
                     // Check both with nim faseleh and with space (since words might be stored either way)
@@ -482,14 +514,15 @@ class BatchController {
                     });
                     
                     if (approvedWord) {
-                        console.log(`✓ Skipping approved word: "${wordBatch.organizedGrapheme}" (Word ID: ${approvedWord._id})`);
+                        if (isTargetWord) {
+                            console.log(`🎯 TARGET WORD IS APPROVED - SKIPPING`);
+                        }
                         skippedCount++;
                         continue; // Skip this word
                     }
                     
                     // Reset status to pending if it was previously processed (for reprocessing)
                     if (wordBatch.status === 'processed') {
-                        console.log(`Resetting status from 'processed' to 'pending' for reprocessing`);
                         await WordBatch.findByIdAndUpdate(wordBatch._id, {
                             status: 'pending'
                         });
@@ -501,26 +534,56 @@ class BatchController {
                         silent_waw_idx: wordBatch.silentWawIdx || [],
                         spoken_A_grapheme_idx: wordBatch.spokenAGraphemeIdx || []
                     });
-                    console.log(`After orthography fixes: "${processedWordBatch}"`);
+                    
+                    if (isTargetWord) {
+                        console.log(`After orthography fixes: "${processedWordBatch}"`);
+                        console.log(showCharCodes(processedWordBatch, "Character codes"));
+                    }
                     
                     // Check if word contains nim faseleh (0x200C)
                     const nimFaselehChar = String.fromCharCode(0x200C);
                     const hasNimFaseleh = processedWordBatch.includes(nimFaselehChar);
-                    console.log(`Has nim faseleh: ${hasNimFaseleh}`);
+                    
+                    if (isTargetWord) {
+                        console.log(`Has nim faseleh (U+200C): ${hasNimFaseleh}`);
+                    }
+                    
+                    // Check for other zero-width characters that might be used as nim faseleh
+                    if (!hasNimFaseleh && isTargetWord) {
+                        console.log(`Checking for other zero-width characters...`);
+                        for (let i = 0; i < processedWordBatch.length; i++) {
+                            const char = processedWordBatch[i];
+                            const code = char.charCodeAt(0);
+                            // Check for various zero-width characters
+                            if (code === 0x200D || code === 0x200E || code === 0x200F || 
+                                code === 0x202A || code === 0x202B || code === 0x202C || 
+                                code === 0x202D || code === 0x202E || code === 0xFEFF) {
+                                console.log(`   Found zero-width character at position ${i}: U+${code.toString(16).toUpperCase()}`);
+                            }
+                        }
+                    }
                     
                     // If word contains nim faseleh, partition it into separate words
                     if (hasNimFaseleh) {
-                        console.log(`\n--- Processing word with nim faseleh ---`);
+                        if (isTargetWord) {
+                            console.log(`\n🎯 Processing TARGET WORD with nim faseleh`);
+                        }
                         // Split by nim faseleh to get individual parts
                         const wordParts = processedWordBatch.split(nimFaselehChar).filter(part => part.trim() !== '');
-                        console.log(`Split into ${wordParts.length} parts:`, wordParts.map(p => `"${p.trim()}"`));
+                        
+                        if (isTargetWord) {
+                            console.log(`Split into ${wordParts.length} parts:`, wordParts.map(p => `"${p.trim()}"`));
+                        }
                         
                         // Process each part separately to save them as individual words and WordBatch records
                         for (let partIndex = 0; partIndex < wordParts.length; partIndex++) {
                             const part = wordParts[partIndex];
                             if (part.trim()) {
                                 const trimmedPart = part.trim();
-                                console.log(`\n  Processing part ${partIndex + 1}/${wordParts.length}: "${trimmedPart}"`);
+                                
+                                if (isTargetWord) {
+                                    console.log(`  Processing part ${partIndex + 1}/${wordParts.length}: "${trimmedPart}"`);
+                                }
                                 
                                 // Check if this part is already approved - if so, skip it
                                 const approvedPartWord = await Word.findOne({ 
@@ -529,7 +592,9 @@ class BatchController {
                                 });
                                 
                                 if (approvedPartWord) {
-                                    console.log(`  ✓ Skipping approved part: "${trimmedPart}"`);
+                                    if (isTargetWord) {
+                                        console.log(`  ✓ Skipping approved part: "${trimmedPart}"`);
+                                    }
                                     continue; // Skip this part
                                 }
                                 
@@ -539,19 +604,11 @@ class BatchController {
                                     organizedGrapheme: trimmedPart
                                 });
                                 
-                                if (existingWordBatch) {
-                                    console.log(`  Found existing WordBatch for part: ${existingWordBatch._id}`);
-                                }
-                                
                                 // Check if this part already exists in Word collection (but not approved)
                                 let existingWord = await Word.findOne({ 
                                     fullWord: trimmedPart,
                                     approved: false // Only consider non-approved words
                                 });
-                                
-                                if (existingWord) {
-                                    console.log(`  Found existing (non-approved) Word for part: ${existingWord._id}`);
-                                }
                                 
                                 // Process the part to get its details
                                 const partMockReq = {
@@ -569,23 +626,27 @@ class BatchController {
                                     })
                                 };
                                 
-                                console.log(`  Calling getWordDetails for part: "${trimmedPart}"`);
                                 // Process each part to get heja and phonemes
                                 await processor.getWordDetails(partMockReq, partMockRes);
                                 
-                                console.log(`  getWordDetails response:`, JSON.stringify(partProcessedData, null, 2));
+                                if (isTargetWord) {
+                                    console.log(`  getWordDetails response:`, JSON.stringify(partProcessedData, null, 2));
+                                }
                                 
                                 // If the part was processed and has data
                                 if (partProcessedData && partProcessedData.result && partProcessedData.result.length > 0) {
                                     const partResult = partProcessedData.result[0];
-                                    console.log(`  Part result:`, {
-                                        hasParts: !!partResult.parts,
-                                        partsCount: partResult.parts?.length || 0,
-                                        hasPhonemes: !!partResult.phonemes,
-                                        phonemesCount: partResult.phonemes?.length || 0,
-                                        parts: partResult.parts,
-                                        phonemes: partResult.phonemes
-                                    });
+                                    
+                                    if (isTargetWord) {
+                                        console.log(`  Part result:`, {
+                                            hasParts: !!partResult.parts,
+                                            partsCount: partResult.parts?.length || 0,
+                                            hasPhonemes: !!partResult.phonemes,
+                                            phonemesCount: partResult.phonemes?.length || 0,
+                                            parts: partResult.parts,
+                                            phonemes: partResult.phonemes
+                                        });
+                                    }
                                     
                                     // Extract parts and phonemes from the result
                                     let partParts = [];
@@ -595,8 +656,6 @@ class BatchController {
                                     
                                     if (partParts.length === 0 || partPhonemes.length === 0) {
                                         console.warn(`  ⚠️ Part "${trimmedPart}" has empty parts or phonemes!`);
-                                        console.warn(`     Parts: ${JSON.stringify(partParts)}`);
-                                        console.warn(`     Phonemes: ${JSON.stringify(partPhonemes)}`);
                                     }
                                     
                                     // Double-check it's not in Word DB (might have been added by getWordDetails if pass was true)
@@ -645,7 +704,10 @@ class BatchController {
                                         
                                         await newPartWord.save();
                                         wordWasJustCreated = true;
-                                        console.log(`  ✓ Saved individual part as Word: "${trimmedPart}" (ID: ${newPartWord._id})`);
+                                        
+                                        if (isTargetWord) {
+                                            console.log(`  ✓ Saved individual part as Word: "${trimmedPart}" (ID: ${newPartWord._id})`);
+                                        }
                                     }
                                     
                                     // Create WordBatch record for this part if it doesn't exist AND has valid data
@@ -674,7 +736,10 @@ class BatchController {
                                         });
                                         
                                         await newPartWordBatch.save();
-                                        console.log(`  ✓ Created WordBatch record for individual part: "${trimmedPart}" (ID: ${newPartWordBatch._id})`);
+                                        
+                                        if (isTargetWord) {
+                                            console.log(`  ✓ Created WordBatch record for individual part: "${trimmedPart}"`);
+                                        }
                                     } else if (existingWordBatch && partParts.length > 0 && partPhonemes.length > 0) {
                                         // Update existing WordBatch record if needed
                                         await WordBatch.findByIdAndUpdate(existingWordBatch._id, {
@@ -684,15 +749,19 @@ class BatchController {
                                             processedAt: new Date(),
                                             addedToWords: true
                                         });
-                                        console.log(`  ✓ Updated existing WordBatch record for part: "${trimmedPart}"`);
+                                        
+                                        if (isTargetWord) {
+                                            console.log(`  ✓ Updated existing WordBatch record for part: "${trimmedPart}"`);
+                                        }
                                     } else if (!partPhonemes || partPhonemes.length === 0) {
                                         // Log warning if phonemes are missing
                                         console.warn(`  ⚠️ Skipping WordBatch creation for "${trimmedPart}" - no phonemes returned from processing`);
-                                        console.warn(`     Part result:`, JSON.stringify(partResult, null, 2));
                                     }
                                 } else {
-                                    console.warn(`  ⚠️ No valid result returned for part "${trimmedPart}"`);
-                                    console.warn(`     Processed data:`, JSON.stringify(partProcessedData, null, 2));
+                                    if (isTargetWord) {
+                                        console.warn(`  ⚠️ No valid result returned for part "${trimmedPart}"`);
+                                        console.warn(`     Processed data:`, JSON.stringify(partProcessedData, null, 2));
+                                    }
                                 }
                             }
                         }
@@ -702,13 +771,14 @@ class BatchController {
                     // We only need the processed data to update the WordBatch record
                     // Replace nim faseleh with space so getWordDetails can properly split it
                     const processedWordForDetails = processedWordBatch.replace(/\u200C/g, ' ').trim();
-                    console.log(`\n--- Processing full word ---`);
-                    console.log(`Original: "${processedWordBatch}"`);
-                    console.log(`After replacing nim faseleh with space: "${processedWordForDetails}"`);
+                    
+                    if (isTargetWord) {
+                        console.log(`\n🎯 Processing full word`);
+                        console.log(`After replacing nim faseleh with space: "${processedWordForDetails}"`);
+                    }
                     
                     // Filter out empty strings from split result
                     const partsAfterSplit = processedWordForDetails.split(' ').filter(part => part.trim() !== '');
-                    console.log(`Split into ${partsAfterSplit.length} parts:`, partsAfterSplit.map(p => `"${p}"`));
                     
                     if (partsAfterSplit.length === 0) {
                         console.error(`✗ ERROR: No valid parts found after processing: "${processedWordBatch}"`);
@@ -737,36 +807,36 @@ class BatchController {
                         })
                     };
 
-                    console.log(`Calling getWordDetails for full word: "${processedWordForDetails}"`);
                     // Call getWordDetails for the full word to get processing data
                     await processor.getWordDetails(mockReq, mockRes);
                     
-                    console.log(`getWordDetails response for full word:`, JSON.stringify(processedData, null, 2));
+                    if (isTargetWord) {
+                        console.log(`getWordDetails response for full word:`, JSON.stringify(processedData, null, 2));
+                    }
 
                     // IMPORTANT: If getWordDetails saved the full word (because pass was true), DELETE IT
                     // We don't want to save full words during batch processing, only individual parts
                     if (processedData && processedData.pass && processedData.totalId) {
                         await Word.findByIdAndDelete(processedData.totalId);
-                        console.log(`Removed full word "${processedWordBatch}" that was auto-saved during batch processing`);
                     }
 
                     if (processedData && processedData.result && Array.isArray(processedData.result)) {
-                        console.log(`Processing ${processedData.result.length} result items`);
-                        
                         // Extract parts and phonemes from the result
                         let allParts = [];
                         let allPhonemes = [];
 
                         processedData.result.forEach((item, index) => {
-                            console.log(`  Result item ${index + 1}:`, {
-                                part: item.part,
-                                hasParts: !!item.parts,
-                                partsCount: item.parts?.length || 0,
-                                hasPhonemes: !!item.phonemes,
-                                phonemesCount: item.phonemes?.length || 0,
-                                parts: item.parts,
-                                phonemes: item.phonemes
-                            });
+                            if (isTargetWord) {
+                                console.log(`  Result item ${index + 1}:`, {
+                                    part: item.part,
+                                    hasParts: !!item.parts,
+                                    partsCount: item.parts?.length || 0,
+                                    hasPhonemes: !!item.phonemes,
+                                    phonemesCount: item.phonemes?.length || 0,
+                                    parts: item.parts,
+                                    phonemes: item.phonemes
+                                });
+                            }
                             
                             if (item.parts && Array.isArray(item.parts) && item.parts.length > 0) {
                                 allParts = [...allParts, ...item.parts];
@@ -776,9 +846,11 @@ class BatchController {
                             }
                         });
                         
-                        console.log(`Extracted ${allParts.length} total parts and ${allPhonemes.length} total phonemes`);
-                        console.log(`Parts:`, allParts);
-                        console.log(`Phonemes:`, allPhonemes);
+                        if (isTargetWord) {
+                            console.log(`Extracted ${allParts.length} total parts and ${allPhonemes.length} total phonemes`);
+                            console.log(`Parts:`, allParts);
+                            console.log(`Phonemes:`, allPhonemes);
+                        }
 
                         if (allParts.length > 0 && allPhonemes.length > 0) {
                             // Update the WordBatch record
@@ -789,13 +861,13 @@ class BatchController {
                                 processedAt: new Date()
                             });
 
-                            console.log(`✓ Successfully processed and updated WordBatch: ${wordBatch._id}`);
+                            if (isTargetWord) {
+                                console.log(`✓ Successfully processed and updated WordBatch: ${wordBatch._id}`);
+                            }
                             processedCount++;
                         } else {
                             // Mark as failed if no valid data
                             console.error(`✗ ERROR: No valid parts or phonemes extracted for: "${processedWordBatch}"`);
-                            console.error(`   All parts:`, allParts);
-                            console.error(`   All phonemes:`, allPhonemes);
                             await WordBatch.findByIdAndUpdate(wordBatch._id, {
                                 status: 'failed',
                                 errorMessage: 'No valid parts or phonemes extracted from processing',
@@ -806,7 +878,6 @@ class BatchController {
                     } else {
                         // Mark as failed if no valid data
                         console.error(`✗ ERROR: No valid processing data returned for: "${processedWordBatch}"`);
-                        console.error(`   Processed data:`, JSON.stringify(processedData, null, 2));
                         await WordBatch.findByIdAndUpdate(wordBatch._id, {
                             status: 'failed',
                             errorMessage: 'No valid processing data returned',
@@ -815,8 +886,7 @@ class BatchController {
                         failedCount++;
                     }
                 } catch (error) {
-                    console.error(`✗ ERROR processing WordBatch ${wordBatch._id}:`, error);
-                    console.error(`   Stack trace:`, error.stack);
+                    console.error(`✗ ERROR processing WordBatch ${wordBatch._id}:`, error.message);
                     await WordBatch.findByIdAndUpdate(wordBatch._id, {
                         status: 'failed',
                         errorMessage: error.message,
