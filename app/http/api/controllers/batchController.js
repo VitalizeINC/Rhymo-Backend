@@ -453,16 +453,20 @@ class BatchController {
             try {
                 const targetWordDebug = await WordBatch.findOne({
                     batch: new mongoose.Types.ObjectId(batchId),
-                    organizedGrapheme: "مَسموم‌کُنَندِه"
+                    $or: [
+                        { organizedGrapheme: /مسموم.*کننده/i },
+                        { organizedGrapheme: /مَسموم.*کُنَندِه/ }
+                    ]
                 });
                 
                 if (targetWordDebug) {
                     console.log(`\n🔍 DEBUG: Found target word in DB: "${targetWordDebug.organizedGrapheme}"`);
                     console.log(`   ID: ${targetWordDebug._id}`);
                     console.log(`   Status: ${targetWordDebug.status}`);
+                    console.log(`   Batch: ${targetWordDebug.batch}`);
                     console.log(`   Error Message: ${targetWordDebug.errorMessage}`);
                 } else {
-                    console.log(`\n�� DEBUG: Target word "مَسموم‌کُنَندِه" NOT FOUND in DB for this batch!`);
+                    console.log(`\n�� DEBUG: Target word NOT FOUND in this batch!`);
                 }
             } catch (e) {
                 console.log(`\n🔍 DEBUG: Error searching for target word: ${e.message}`);
