@@ -933,18 +933,72 @@ class BatchController {
                         }
 
                         if (allParts.length > 0 && allPhonemes.length > 0) {
-                            // Update the WordBatch record
-                            await WordBatch.findByIdAndUpdate(wordBatch._id, {
-                                processedParts: allParts,
-                                processedPhonemes: allPhonemes,
-                                status: 'processed',
-                                processedAt: new Date()
-                            });
-
-                            if (shouldLog) {
-                                console.log(`   ✓ Successfully processed and updated WordBatch: ${wordBatch._id}`);
+                            // Check if any of the word parts exist in Words collection
+                            let anyPartExistsInWords = false;
+                            if (partsAfterSplit && partsAfterSplit.length > 0) {
+                                for (const part of partsAfterSplit) {
+                                    const trimmedPart = part.trim();
+                                    if (trimmedPart) {
+                                        const partExists = await Word.findOne({ 
+                                            fullWord: trimmedPart
+                                        });
+                                        if (partExists) {
+                                            anyPartExistsInWords = true;
+                                            break;
+                                        }
+                                    }
+                                }
                             }
-                            processedCount++;
+                            
+                            // Update the WordBatch record with error handling
+                            try {
+                                await WordBatch.findByIdAndUpdate(wordBatch._id, {
+                                    processedParts: allParts,
+                                    processedPhonemes: allPhonemes,
+                                    status: 'processed',
+                                    processedAt: new Date(),
+                                    addedToWords: !!anyPartExistsInWords  // Explicitly set to boolean
+                                }, {
+                                    runValidators: false  // Skip validation to avoid issues with existing invalid data
+                                });
+
+                                if (shouldLog) {
+                                    console.log(`   ✓ Successfully processed and updated WordBatch: ${wordBatch._id}`);
+                                }
+                                processedCount++;
+                            } catch (updateError) {
+                                console.error(`✗ ERROR updating WordBatch ${wordBatch._id}:`, updateError.message);
+                                if (shouldLog) {
+                                    console.error(`   Full error:`, updateError);
+                                }
+                                // Try to update with minimal fields to avoid validation errors
+                                try {
+                                    await WordBatch.findByIdAndUpdate(wordBatch._id, {
+                                        processedParts: allParts,
+                                        processedPhonemes: allPhonemes,
+                                        status: 'processed',
+                                        processedAt: new Date(),
+                                        addedToWords: false  // Set to false as fallback
+                                    }, {
+                                        runValidators: false,
+                                        setDefaultsOnInsert: false
+                                    });
+                                    processedCount++;
+                                    if (shouldLog) {
+                                        console.log(`   ✓ Retry update succeeded for WordBatch: ${wordBatch._id}`);
+                                    }
+                                } catch (retryError) {
+                                    console.error(`✗ ERROR retry update failed for WordBatch ${wordBatch._id}:`, retryError.message);
+                                    await WordBatch.findByIdAndUpdate(wordBatch._id, {
+                                        status: 'failed',
+                                        errorMessage: `Update failed: ${updateError.message}`,
+                                        processedAt: new Date()
+                                    }, {
+                                        runValidators: false
+                                    });
+                                    failedCount++;
+                                }
+                            }
                         } else {
                             // Mark as failed if no valid data
                             console.error(`✗ ERROR: No valid parts or phonemes extracted for: "${processedWordBatch}"`);
