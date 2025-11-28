@@ -18,8 +18,13 @@ class processController extends controller {
         let result = []
         let pass = true
         
-        // Check if this is a target word for debugging
-        const isTargetWord = modalTitle.includes("مَسموم") && modalTitle.includes("کُنَندِه");
+        // Check if this is a target word for debugging - use more flexible matching
+        const isTargetWord = (modalTitle.includes("مَسموم") || modalTitle.includes("مسموم")) &&
+                            (modalTitle.includes("کُنَندِه") || modalTitle.includes("کننده"));
+        
+        if (isTargetWord) {
+            console.log(`\n[processController] === Processing target word: "${modalTitle}" ===`);
+        }
         
         for (let i = 0; i < stringParts.length; i++) {
             let schema = {
@@ -37,6 +42,10 @@ class processController extends controller {
                 schema.phonemes = checkInDB.ava
                 totalParts = [...totalParts, ...checkInDB.heja]
                 totalPhonemes = [...totalPhonemes, ...checkInDB.ava]
+                
+                if (isTargetWord) {
+                    console.log(`[processController] Part "${stringParts[i]}" found in DB (ID: ${checkInDB._id})`);
+                }
             } else {
                 // Only log for target word
                 if (isTargetWord) {
@@ -54,6 +63,13 @@ class processController extends controller {
                 schema.phonemes = phonemesPart
                 totalParts = [...totalParts, ...wordDetailsPart]
                 totalPhonemes = [...totalPhonemes, ...phonemesPart]
+                
+                if (isTargetWord) {
+                    console.log(`[processController] Processed "${stringParts[i]}":`, {
+                        parts: wordDetailsPart,
+                        phonemes: phonemesPart
+                    });
+                }
             }
             result.push(schema)
         }

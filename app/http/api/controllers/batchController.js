@@ -468,17 +468,63 @@ class BatchController {
             console.log(`Total WordBatch records to process: ${wordBatches.length}`);
             
             // Search for specific word if needed (for debugging)
-            const searchWord = "مَسموم‌کُنَندِه";
-            const foundWord = wordBatches.find(wb => 
-                wb.organizedGrapheme.includes("مَسموم") && wb.organizedGrapheme.includes("کُنَندِه")
-            );
+            // Try multiple search patterns
+            const searchPatterns = [
+                "مَسموم",
+                "مسموم",
+                "کُنَندِه",
+                "کننده",
+                "مَسموم‌کُنَندِه",
+                "مسموم‌کننده"
+            ];
             
-            if (foundWord) {
-                console.log(`\n🔍 FOUND TARGET WORD: "${foundWord.organizedGrapheme}"`);
-                console.log(`   WordBatch ID: ${foundWord._id}, Status: ${foundWord.status}`);
-                const nimFaselehChar = String.fromCharCode(0x200C);
-                const hasNimFaseleh = foundWord.organizedGrapheme.includes(nimFaselehChar);
-                console.log(`   Has nim faseleh (U+200C): ${hasNimFaseleh}`);
+            // Find words matching any pattern
+            const foundWords = wordBatches.filter(wb => {
+                const grapheme = wb.organizedGrapheme;
+                return searchPatterns.some(pattern => grapheme.includes(pattern));
+            });
+            
+            if (foundWords.length > 0) {
+                console.log(`\n🔍 FOUND ${foundWords.length} WORDS MATCHING SEARCH PATTERNS:`);
+                foundWords.forEach((wb, idx) => {
+                    console.log(`\n${idx + 1}. "${wb.organizedGrapheme}"`);
+                    console.log(`   WordBatch ID: ${wb._id}, Status: ${wb.status}, RowIndex: ${wb.rowIndex}`);
+                    
+                    // Check for nim faseleh
+                    const nimFaselehChar = String.fromCharCode(0x200C);
+                    const hasNimFaseleh = wb.organizedGrapheme.includes(nimFaselehChar);
+                    console.log(`   Has nim faseleh (U+200C): ${hasNimFaseleh}`);
+                    
+                    // Show character codes for first 20 characters
+                    const preview = wb.organizedGrapheme.substring(0, 20);
+                    const codes = [];
+                    for (let i = 0; i < preview.length; i++) {
+                        const code = preview.charCodeAt(i);
+                        if (code === 0x200C || code === 0x200D || code === 0x200E || code === 0x200F) {
+                            codes.push(`U+${code.toString(16).toUpperCase()} at pos ${i}`);
+                        }
+                    }
+                    if (codes.length > 0) {
+                        console.log(`   Zero-width chars: ${codes.join(', ')}`);
+                    }
+                });
+                
+                // Check specifically for the exact target word
+                const exactMatch = foundWords.find(wb => 
+                    wb.organizedGrapheme.includes("مَسموم") && wb.organizedGrapheme.includes("کُنَندِه")
+                );
+                
+                if (exactMatch) {
+                    console.log(`\n✅ EXACT TARGET WORD FOUND: "${exactMatch.organizedGrapheme}"`);
+                } else {
+                    console.log(`\n⚠️ Exact target word not found, but found similar words above`);
+                }
+            } else {
+                console.log(`\n⚠️ NO WORDS FOUND matching search patterns: ${searchPatterns.join(', ')}`);
+                console.log(`   Showing first 10 words in batch for reference:`);
+                wordBatches.slice(0, 10).forEach((wb, idx) => {
+                    console.log(`   ${idx + 1}. "${wb.organizedGrapheme}" (ID: ${wb._id})`);
+                });
             }
 
             const processor = processControllerInstance;
@@ -496,11 +542,17 @@ class BatchController {
             for (const wordBatch of wordBatches) {
                 try {
                     // Check if this is the target word for detailed logging
-                    const isTargetWord = wordBatch.organizedGrapheme.includes("مَسموم") && 
-                                       wordBatch.organizedGrapheme.includes("کُنَندِه");
+                    // Use more flexible matching
+                    const isTargetWord = (wordBatch.organizedGrapheme.includes("مَسموم") || 
+                                         wordBatch.organizedGrapheme.includes("مسموم")) &&
+                                        (wordBatch.organizedGrapheme.includes("کُنَندِه") || 
+                                         wordBatch.organizedGrapheme.includes("کننده"));
                     
                     if (isTargetWord) {
                         console.log(`\n🎯 === PROCESSING TARGET WORD: "${wordBatch.organizedGrapheme}" ===`);
+                        console.log(`   WordBatch ID: ${wordBatch._id}`);
+                        console.log(`   Status: ${wordBatch.status}`);
+                        console.log(`   RowIndex: ${wordBatch.rowIndex}`);
                     }
                     
                     // Check if this word is already approved - if so, skip it
