@@ -18,6 +18,9 @@ class processController extends controller {
         let result = []
         let pass = true
         
+        // Check if this is a target word for debugging
+        const isTargetWord = modalTitle.includes("مَسموم") && modalTitle.includes("کُنَندِه");
+        
         for (let i = 0; i < stringParts.length; i++) {
             let schema = {
                 id: "",
@@ -35,12 +38,15 @@ class processController extends controller {
                 totalParts = [...totalParts, ...checkInDB.heja]
                 totalPhonemes = [...totalPhonemes, ...checkInDB.ava]
             } else {
-                console.log("Not in DB")
+                // Only log for target word
+                if (isTargetWord) {
+                    console.log(`[processController] Not in DB: "${stringParts[i]}"`);
+                }
                 pass = false
-                let {string: sPart, tashdid: tashdidPart} = this.stringBootstrap(stringParts[i])
-                let processPart = this.process(sPart)
+                let {string: sPart, tashdid: tashdidPart} = this.stringBootstrap(stringParts[i], isTargetWord)
+                let processPart = this.process(sPart, isTargetWord)
                 let wordDetailsPart = Array.isArray(processPart) ? processPart  : [processPart] 
-                let phonemesPart = this.phoneme(sPart)
+                let phonemesPart = this.phoneme(sPart, isTargetWord)
                 // Replace y and w with real characters
                 wordDetailsPart = wordDetailsPart.map(part => part.replace(/y/g, 'ی').replace(/w/g, 'و'))
                 phonemesPart = phonemesPart.map(phoneme => phoneme.replace(/y/g, 'ی').replace(/w/g, 'و'))
@@ -98,17 +104,17 @@ class processController extends controller {
             totalId
         })
     }
-    phoneme(s) {
+    phoneme(s, debug = false) {
         let phonemes = []
         let value = 0
-        let ph = this.checkChar(s, value)
+        let ph = this.checkChar(s, value, debug)
         let checkNotA = ''
         do {
             let MosavetKootah
             if (ph.before == String.fromCharCode(1614) || ph.before == String.fromCharCode(1615) || ph.before == String.fromCharCode(1616)) {
                 MosavetKootah = ph.before
             }
-            if (ph.key == 'ی' && ph.before == 'ی') ph = this.checkChar(s, ph.value + 1)
+            if (ph.key == 'ی' && ph.before == 'ی') ph = this.checkChar(s, ph.value + 1, debug)
             checkNotA = Array.isArray(ph.key) ? (ph.key[0] == 'ا' ? ph.key[0] = '' : ph.key[0] = 'ا') : '';
             ph != "" ? (ph.key == String.fromCharCode(1614) && ph.before != 'ا' ? ph.key = 'ا' + String.fromCharCode(1614) : null) : null
             ph != "" ? (ph.key == String.fromCharCode(1615) && ph.before != 'ا' ? ph.key = 'ا' + String.fromCharCode(1615) : null) : null
@@ -117,10 +123,13 @@ class processController extends controller {
             ph != "" ? (ph.key == 'و' && ph.before != 'ا' ? ph.key = 'ا' + (MosavetKootah || '') + 'و' : null) : null
             ph != "" ? (ph.key == 'ا' ? ph.key = 'آ' : null) : null
             ph ? (ph.before == 'ا' ? phonemes.push(ph.before + checkNotA + ph.key) : phonemes.push(ph.key)) : null
-            console.log(ph)
+            // Only log for debug mode
+            if (debug) {
+                console.log(`[phoneme] ph:`, ph);
+            }
             value = ph.value
 
-            ph = this.checkChar(s, value + 1)
+            ph = this.checkChar(s, value + 1, debug)
         }
         while (s.length > value)
         if (s[0] == 'آ') {
@@ -129,19 +138,22 @@ class processController extends controller {
         return phonemes
 
     }
-    process(s) {
+    process(s, debug = false) {
         let array = []
         let string = s
-        let Mosavet1 = this.checkChar(string, 0)
-        let Mosavet2 = this.checkChar(string, Mosavet1.value + 1)
-        console.log("Mosavet1", Mosavet1)
-        console.log("Mosavet2", Mosavet2)
+        let Mosavet1 = this.checkChar(string, 0, debug)
+        let Mosavet2 = this.checkChar(string, Mosavet1.value + 1, debug)
+        // Only log for debug mode
+        if (debug) {
+            console.log("[process] Mosavet1:", Mosavet1);
+            console.log("[process] Mosavet2:", Mosavet2);
+        }
         if (!Mosavet2) return string
             //Part 1
         let heja = string.slice(0, Mosavet2.value - 1)
             // heja[0] == 'ا' ? array.push() : array.push(heja)
         if (heja[0] == 'ا') {
-            if (heja[1] && !this.checkNextChar(heja[1], 1, 'ا')) {
+            if (heja[1] && !this.checkNextChar(heja[1], 1, 'ا', debug)) {
                 heja = heja.split("")
                 heja[0] = 'آ'
                 heja = heja.join("")
@@ -158,8 +170,8 @@ class processController extends controller {
         let charAfterMosavet
         
         while (pointer || pointer == 0) {
-            Mosavet1 = this.checkChar(string, pointer)
-            Mosavet2 = this.checkChar(string, Mosavet1.value + 1)
+            Mosavet1 = this.checkChar(string, pointer, debug)
+            Mosavet2 = this.checkChar(string, Mosavet1.value + 1, debug)
             heja = string.slice(Mosavet2.value - 1, Mosavet2.value + 1)
             array[0][0] == 'آ' ? null : charAfterMosavet = array[array.length - 1].search(string[Mosavet2.value - 2])
             if (charAfterMosavet == -1) {
@@ -194,21 +206,21 @@ class processController extends controller {
 
 
 
-    checkChar(string, counter) {
+    checkChar(string, counter, debug = false) {
         for (var i = counter; i < string.length; i++) {
             if (string[i] == 'آ')
-                if (this.checkNextChar(string[i + 1], i + 1, string[i])) return this.checkNextChar(string[i + 1], i + 1, string[i]);
+                if (this.checkNextChar(string[i + 1], i + 1, string[i], debug)) return this.checkNextChar(string[i + 1], i + 1, string[i], debug);
                 else return { key: 'آ', value: i }
             if (string[i] == 'ا')
-                if (this.checkNextChar(string[i + 1], i + 1, string[i])) return this.checkNextChar(string[i + 1], i + 1, string[i]);
+                if (this.checkNextChar(string[i + 1], i + 1, string[i], debug)) return this.checkNextChar(string[i + 1], i + 1, string[i], debug);
                 else return { key: 'ا', value: i }
             if (string[i] == 'ی')
-                if (string[i - 1] == String.fromCharCode(1618)) return this.checkNextChar(string[i + 1], i + 1, string[i])
-                else if (string[i + 1] == String.fromCharCode(1618)) return this.checkNextChar(string[i + 2], i + 2, string[i])
-                else if (this.checkNextChar(string[i + 1], i + 1, string[i])) return this.checkNextChar(string[i + 1], i + 1, string[i]);  
+                if (string[i - 1] == String.fromCharCode(1618)) return this.checkNextChar(string[i + 1], i + 1, string[i], debug)
+                else if (string[i + 1] == String.fromCharCode(1618)) return this.checkNextChar(string[i + 2], i + 2, string[i], debug)
+                else if (this.checkNextChar(string[i + 1], i + 1, string[i], debug)) return this.checkNextChar(string[i + 1], i + 1, string[i], debug);  
                 else return { key: 'ی', value: i }
             if (string[i] == 'و')
-                if (this.checkNextChar(string[i + 1], i + 1, string[i])) return this.checkNextChar(string[i + 1], i + 1, string[i]);
+                if (this.checkNextChar(string[i + 1], i + 1, string[i], debug)) return this.checkNextChar(string[i + 1], i + 1, string[i], debug);
                 else return { key: 'و', value: i }
             if (string[i] == String.fromCharCode(1614))
                 return { key: String.fromCharCode(1614), value: i }
@@ -220,8 +232,12 @@ class processController extends controller {
         }
         return false
     }
-    checkNextChar(char, i, before) {
-        console.log(char, i, before)
+    
+    checkNextChar(char, i, before, debug = false) {
+        // Only log for debug mode
+        if (debug) {
+            console.log(`[checkNextChar] char: ${char}, i: ${i}, before: ${before}`);
+        }
         if (before == 'ا') {
             if (char == String.fromCharCode(1614)) return { key: String.fromCharCode(1614), value: i, before }
             if (char == String.fromCharCode(1615)) return { key: String.fromCharCode(1615), value: i, before }
@@ -240,7 +256,8 @@ class processController extends controller {
         return false
 
     }
-    stringBootstrap(string) {
+    
+    stringBootstrap(string, debug = false) {
 
         // Check Tanvin
         for (var i = 0; i < string.length; i++) {
@@ -269,16 +286,22 @@ class processController extends controller {
                 tashdid = i
             }
         }
-        console.log("Before",string)
+        // Only log for debug mode
+        if (debug) {
+            console.log("[stringBootstrap] Before:", string);
+        }
         string = this.checkYaAndVav(string)
         
-        console.log("After",string)
+        if (debug) {
+            console.log("[stringBootstrap] After:", string);
+        }
 
         return {
             string,
             tashdid
         }
     }
+    
     solidWord(s) {
         let string = s.split(String.fromCharCode(1614)).join("").split(String.fromCharCode(1615)).join("")
             .split(String.fromCharCode(1616)).join("").split(String.fromCharCode(1617)).join("")
