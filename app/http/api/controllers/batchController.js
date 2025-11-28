@@ -587,9 +587,27 @@ class BatchController {
                         spoken_A_grapheme_idx: wordBatch.spokenAGraphemeIdx || []
                     });
                     
+                    // Debug: Check if nim faseleh was preserved after applyOrthographyFixes
+                    const originalHasNimFaseleh = wordBatch.organizedGrapheme.includes('\u200C');
+                    const processedHasNimFaseleh = processedWordBatch.includes('\u200C');
+                    
                     if (isTargetWord) {
                         console.log(`After orthography fixes: "${processedWordBatch}"`);
+                        console.log(`Original has nim faseleh: ${originalHasNimFaseleh}, Processed has nim faseleh: ${processedHasNimFaseleh}`);
                         console.log(showCharCodes(processedWordBatch, "Character codes"));
+                        
+                        // If nim faseleh was lost, log a warning
+                        if (originalHasNimFaseleh && !processedHasNimFaseleh) {
+                            console.error(`⚠️ WARNING: Nim faseleh was lost after applyOrthographyFixes!`);
+                            console.error(`   Original: "${wordBatch.organizedGrapheme}"`);
+                            console.error(`   Processed: "${processedWordBatch}"`);
+                            // Restore nim faseleh by replacing space with nim faseleh if needed
+                            // This is a workaround - the real fix should be in applyOrthographyFixes
+                            if (processedWordBatch.includes(' ')) {
+                                processedWordBatch = processedWordBatch.replace(/\s+/g, '\u200C');
+                                console.log(`   Attempted to restore nim faseleh: "${processedWordBatch}"`);
+                            }
+                        }
                     }
                     
                     // Check if word contains nim faseleh (0x200C)
