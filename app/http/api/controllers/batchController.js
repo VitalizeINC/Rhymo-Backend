@@ -619,9 +619,12 @@ class BatchController {
                     
                     // Now process the full word (with nim faseleh) - BUT DON'T SAVE IT TO WORDS
                     // We only need the processed data to update the WordBatch record
+                    // Replace nim faseleh with space so getWordDetails can properly split it
+                    const processedWordForDetails = processedWordBatch.replace(/\u200C/g, ' ');
+                    
                     const mockReq = {
                         body: {
-                            string: processedWordBatch
+                            string: processedWordForDetails
                         }
                     };
 
