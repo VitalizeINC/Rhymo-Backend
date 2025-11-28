@@ -449,11 +449,30 @@ class BatchController {
                 return `${label}: [${codes.join(', ')}]`;
             };
 
-            // Get all WordBatch records (pending and processed) for reprocessing
+            // Debug: Check for the specific target word in the DB to see its status
+            try {
+                const targetWordDebug = await WordBatch.findOne({
+                    batch: new mongoose.Types.ObjectId(batchId),
+                    organizedGrapheme: "مَسموم‌کُنَندِه"
+                });
+                
+                if (targetWordDebug) {
+                    console.log(`\n🔍 DEBUG: Found target word in DB: "${targetWordDebug.organizedGrapheme}"`);
+                    console.log(`   ID: ${targetWordDebug._id}`);
+                    console.log(`   Status: ${targetWordDebug.status}`);
+                    console.log(`   Error Message: ${targetWordDebug.errorMessage}`);
+                } else {
+                    console.log(`\n�� DEBUG: Target word "مَسموم‌کُنَندِه" NOT FOUND in DB for this batch!`);
+                }
+            } catch (e) {
+                console.log(`\n🔍 DEBUG: Error searching for target word: ${e.message}`);
+            }
+
+            // Get all WordBatch records (pending, processed, and failed) for reprocessing
             // We'll skip only those that have approved words
             const wordBatches = await WordBatch.find({ 
                 batch: new mongoose.Types.ObjectId(batchId),
-                status: { $in: ['pending', 'processed'] } // Include both pending and processed
+                status: { $in: ['pending', 'processed', 'failed'] } // Include both pending, processed, AND failed
             }).sort({ rowIndex: 1 });
 
             if (wordBatches.length === 0) {
@@ -546,7 +565,8 @@ class BatchController {
                     const isTargetWord = (wordBatch.organizedGrapheme.includes("مَسموم") || 
                                          wordBatch.organizedGrapheme.includes("مسموم")) &&
                                         (wordBatch.organizedGrapheme.includes("کُنَندِه") || 
-                                         wordBatch.organizedGrapheme.includes("کننده"));
+                                         wordBatch.organizedGrapheme.includes("کننده") ||
+                                         wordBatch.organizedGrapheme.includes("کننده")); // Extra check just in case
                     
                     if (isTargetWord) {
                         console.log(`\n🎯 === PROCESSING TARGET WORD: "${wordBatch.organizedGrapheme}" ===`);
@@ -600,7 +620,7 @@ class BatchController {
                     const processedHasNimFaseleh = processedWordBatch.includes('\u200C');
                     
                     if (originalHasNimFaseleh && !processedHasNimFaseleh) {
-                        console.warn(`⚠️ Nim faseleh was lost after applyOrthographyFixes for: "${wordBatch.organizedGrapheme}"`);
+                        console.log(`[FIX] Nim faseleh was lost after applyOrthographyFixes for: "${wordBatch.organizedGrapheme}"`);
                         // Restore nim faseleh - replace spaces that were originally nim faseleh
                         // This is a workaround - ideally applyOrthographyFixes should preserve nim faseleh
                         const originalParts = wordBatch.organizedGrapheme.split('\u200C');
