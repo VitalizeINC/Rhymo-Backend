@@ -318,9 +318,9 @@ class wordManageController extends controller {
                 batchId: batchId || null,
                 batchName: batchName || null,
                 wordBatchId: wordBatchId || null,
-                approved: true, // Auto-approve batch words
-                approvedBy: req.user?.id || null,
-                approvedAt: new Date(),
+                approved: false, // DON'T auto-approve batch words - they need review
+                approvedBy: null,
+                approvedAt: null,
                 level: level // Word level/category
             });
 
