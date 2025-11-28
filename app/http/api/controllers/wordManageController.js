@@ -368,6 +368,99 @@ class wordManageController extends controller {
         }
     }
 
+    async updateWordBatch(req, res, next) {
+        try {
+            const { wordBatchId } = req.params;
+            const { processedParts, processedPhonemes } = req.body;
+
+            // Check if word batch item exists
+            const wordBatch = await WordBatch.findById(wordBatchId);
+            if (!wordBatch) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Word batch item not found'
+                });
+            }
+
+            // Verify that the word hasn't been added to the words collection
+            if (wordBatch.addedToWords === true) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Cannot edit word that has already been added to words collection'
+                });
+            }
+
+            // Validate request body
+            const updateData = {};
+
+            // Validate and process processedParts
+            if (processedParts !== undefined) {
+                if (!Array.isArray(processedParts)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid request data',
+                        error: 'processedParts must be an array'
+                    });
+                }
+                // Filter out empty strings and trim whitespace
+                updateData.processedParts = processedParts
+                    .map(part => typeof part === 'string' ? part.trim() : String(part).trim())
+                    .filter(part => part !== '');
+            }
+
+            // Validate and process processedPhonemes
+            if (processedPhonemes !== undefined) {
+                if (!Array.isArray(processedPhonemes)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid request data',
+                        error: 'processedPhonemes must be an array'
+                    });
+                }
+                // Filter out empty strings and trim whitespace
+                updateData.processedPhonemes = processedPhonemes
+                    .map(phoneme => typeof phoneme === 'string' ? phoneme.trim() : String(phoneme).trim())
+                    .filter(phoneme => phoneme !== '');
+            }
+
+            // Check if there's anything to update
+            if (Object.keys(updateData).length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid request data',
+                    error: 'At least one field (processedParts or processedPhonemes) must be provided'
+                });
+            }
+
+            // Update the word batch item
+            const updatedWordBatch = await WordBatch.findByIdAndUpdate(
+                wordBatchId,
+                updateData,
+                { new: true, runValidators: true }
+            );
+
+            // Return success response
+            res.status(200).json({
+                success: true,
+                message: 'Word batch item updated successfully',
+                data: {
+                    id: updatedWordBatch._id,
+                    processedParts: updatedWordBatch.processedParts,
+                    processedPhonemes: updatedWordBatch.processedPhonemes,
+                    updatedAt: updatedWordBatch.updatedAt
+                }
+            });
+
+        } catch (error) {
+            console.error('Error updating word batch:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Internal server error',
+                error: error.message
+            });
+        }
+    }
+
     solidWord(s) {
         let string = s.split(String.fromCharCode(1614)).join("").split(String.fromCharCode(1615)).join("")
             .split(String.fromCharCode(1616)).join("").split(String.fromCharCode(1617)).join("")

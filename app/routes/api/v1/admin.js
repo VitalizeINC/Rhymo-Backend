@@ -13,7 +13,8 @@ router.get('/admin/checkToken', authenticateAdmin.handle, (req, res) => { res.st
 // Word management routes
 router.get('/admin/getWords', authenticateAdmin.handle, wordManageController.getWords);
 router.post('/admin/save-batch-word', authenticateAdmin.handle, wordManageController.saveBatchWord);
-    router.put('/admin/updateWord', authenticateAdmin.handle, wordManageController.updateWord);
+router.put('/admin/word-batches/:wordBatchId', authenticateAdmin.handle, wordManageController.updateWordBatch);
+router.put('/admin/updateWord', authenticateAdmin.handle, wordManageController.updateWord);
 router.delete('/admin/deleteWord', authenticateAdmin.handle, wordManageController.deleteWord);
 router.put('/admin/updateWordStatus', authenticateAdmin.handle, wordManageController.updateWordStatus);
 
