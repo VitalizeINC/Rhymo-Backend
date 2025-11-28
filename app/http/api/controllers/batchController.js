@@ -438,16 +438,17 @@ class BatchController {
                 });
             }
 
-            // Get all pending WordBatch records for this batch
+            // Get all WordBatch records (pending and processed) for reprocessing
+            // We'll skip only those that have approved words
             const wordBatches = await WordBatch.find({ 
                 batch: new mongoose.Types.ObjectId(batchId),
-                status: 'pending'
+                status: { $in: ['pending', 'processed'] } // Include both pending and processed
             }).sort({ rowIndex: 1 });
 
             if (wordBatches.length === 0) {
                 return res.json({
                     success: true,
-                    message: 'No pending records to process',
+                    message: 'No records to process',
                     processedCount: 0
                 });
             }
@@ -455,6 +456,7 @@ class BatchController {
             const processor = processControllerInstance;
             let processedCount = 0;
             let failedCount = 0;
+            let skippedCount = 0; // Count of approved words that were skipped
             
             // Get the max rowIndex for this batch to assign new rowIndex values for parts
             const maxRowIndexDoc = await WordBatch.findOne({ 
@@ -465,6 +467,25 @@ class BatchController {
             // Process each WordBatch record
             for (const wordBatch of wordBatches) {
                 try {
+                    // Check if this word is already approved - if so, skip it
+                    const approvedWord = await Word.findOne({ 
+                        fullWord: wordBatch.organizedGrapheme,
+                        approved: true 
+                    });
+                    
+                    if (approvedWord) {
+                        console.log(`Skipping approved word: ${wordBatch.organizedGrapheme}`);
+                        skippedCount++;
+                        continue; // Skip this word
+                    }
+                    
+                    // Reset status to pending if it was previously processed (for reprocessing)
+                    if (wordBatch.status === 'processed') {
+                        await WordBatch.findByIdAndUpdate(wordBatch._id, {
+                            status: 'pending'
+                        });
+                    }
+
                     // Create a mock request object for getWordDetails
                     let processedWordBatch = applyOrthographyFixes(wordBatch.organizedGrapheme, {
                         waw_o_exception_idx: wordBatch.wawOExceptionIdx || [],
@@ -488,14 +509,28 @@ class BatchController {
                             if (part.trim()) {
                                 const trimmedPart = part.trim();
                                 
+                                // Check if this part is already approved - if so, skip it
+                                const approvedPartWord = await Word.findOne({ 
+                                    fullWord: trimmedPart,
+                                    approved: true 
+                                });
+                                
+                                if (approvedPartWord) {
+                                    console.log(`Skipping approved part: ${trimmedPart}`);
+                                    continue; // Skip this part
+                                }
+                                
                                 // Check if a WordBatch record already exists for this part in this batch
                                 let existingWordBatch = await WordBatch.findOne({ 
                                     batch: new mongoose.Types.ObjectId(batchId),
                                     organizedGrapheme: trimmedPart
                                 });
                                 
-                                // Check if this part already exists in Word collection
-                                let existingWord = await Word.findOne({ fullWord: trimmedPart });
+                                // Check if this part already exists in Word collection (but not approved)
+                                let existingWord = await Word.findOne({ 
+                                    fullWord: trimmedPart,
+                                    approved: false // Only consider non-approved words
+                                });
                                 
                                 // Process the part to get its details
                                 const partMockReq = {
@@ -527,12 +562,15 @@ class BatchController {
                                     if (partResult.phonemes) partPhonemes = partResult.phonemes;
                                     
                                     // Double-check it's not in Word DB (might have been added by getWordDetails if pass was true)
-                                    existingWord = await Word.findOne({ fullWord: trimmedPart });
+                                    existingWord = await Word.findOne({ 
+                                        fullWord: trimmedPart,
+                                        approved: false // Only consider non-approved words
+                                    });
                                     
                                     let wordWasJustCreated = false;
                                     
-                                    // Save as Word if it doesn't exist AND has valid phonemes
-                                    if (!existingWord && partResult.parts && partResult.parts.length > 0 && 
+                                    // Save as Word if it doesn't exist AND has valid phonemes AND is not approved
+                                    if (!existingWord && !approvedPartWord && partResult.parts && partResult.parts.length > 0 && 
                                         partResult.phonemes && partResult.phonemes.length > 0) {
                                         // Calculate space and nim faseleh positions for this part
                                         let spacePositions = [];
@@ -692,6 +730,7 @@ class BatchController {
                 message: 'WordBatch processing completed',
                 processedCount,
                 failedCount,
+                skippedCount,
                 totalRecords: wordBatches.length
             });
 
