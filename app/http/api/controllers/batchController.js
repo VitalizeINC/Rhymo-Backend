@@ -984,22 +984,13 @@ class BatchController {
                         }
 
                         if (allParts.length > 0 && allPhonemes.length > 0) {
-                            // Check if any of the word parts exist in Words collection
-                            let anyPartExistsInWords = false;
-                            if (partsAfterSplit && partsAfterSplit.length > 0) {
-                                for (const part of partsAfterSplit) {
-                                    const trimmedPart = part.trim();
-                                    if (trimmedPart) {
-                                        const partExists = await Word.findOne({ 
-                                            fullWord: trimmedPart
-                                        });
-                                        if (partExists) {
-                                            anyPartExistsInWords = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
+                            // Check if the FULL word exists in Words collection (not just parts)
+                            const fullWordExistsInWords = await Word.findOne({ 
+                                $or: [
+                                    { fullWord: wordBatch.organizedGrapheme },
+                                    { fullWord: processedWordForDetails }
+                                ]
+                            });
                             
                             // Update the WordBatch record with error handling
                             try {
@@ -1008,9 +999,9 @@ class BatchController {
                                     processedPhonemes: allPhonemes,
                                     status: 'processed',
                                     processedAt: new Date(),
-                                    addedToWords: !!anyPartExistsInWords  // Explicitly set to boolean
+                                    addedToWords: !!fullWordExistsInWords  // Check FULL word, not parts
                                 }, {
-                                    runValidators: false  // Skip validation to avoid issues with existing invalid data
+                                    runValidators: false
                                 });
 
                                 if (shouldLog) {

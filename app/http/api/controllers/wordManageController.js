@@ -284,7 +284,7 @@ class wordManageController extends controller {
                 });
             }
 
-            // Create space and nimFaseleh positions
+            // Create space and nimFaseleh positions BEFORE conversion
             let spacePositions = []
             let nimFaselehPositions = []
             for(let i = 0; i < organizedGrapheme.length; i++){
@@ -296,6 +296,7 @@ class wordManageController extends controller {
                 }
             }
 
+            // Convert nim faseleh to space for fullWord
             const fullWord = organizedGrapheme.replace(/\u200C/g, " ");
             const solidWord = this.solidWord(fullWord);
 
@@ -304,24 +305,24 @@ class wordManageController extends controller {
 
             // Create the new word
             const newWord = new Word({
-                fullWord: organizedGrapheme,
-                fullWordWithNimFaseleh: organizedGrapheme,
+                fullWord: fullWord,  // Use converted version (with spaces, not nim faseleh)
+                fullWordWithNimFaseleh: organizedGrapheme,  // Keep original with nim faseleh
                 word: solidWord,
-                heja: processedHeja, // Using phoneme array as heja
+                heja: processedHeja,
                 avaString: processedPhoneme.join(","),
                 ava: processedPhoneme,
                 hejaCounter: processedHeja.length,
                 spacePositions: spacePositions,
-                nimFaselehPositions: nimFaselehPositions,
+                nimFaselehPositions: nimFaselehPositions,  // Positions in original string
                 // Batch tracking fields
                 addedBy: req.user?.id || null,
                 batchId: batchId || null,
                 batchName: batchName || null,
                 wordBatchId: wordBatchId || null,
-                approved: false, // DON'T auto-approve batch words - they need review
+                approved: false,  // Don't auto-approve
                 approvedBy: null,
                 approvedAt: null,
-                level: level // Word level/category
+                level: level
             });
 
             await newWord.save();
