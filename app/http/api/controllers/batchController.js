@@ -821,7 +821,10 @@ class BatchController {
                     // Now process the full word (with nim faseleh) - BUT DON'T SAVE IT TO WORDS
                     // We only need the processed data to update the WordBatch record
                     // Replace nim faseleh with space so getWordDetails can properly split it
-                    const processedWordForDetails = processedWordBatch.replace(/\u200C/g, ' ').trim();
+                    // Also replace multiple spaces with single space
+                    const processedWordForDetails = processedWordBatch.replace(/\u200C/g, ' ')
+                        .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
+                        .trim();
                     
                     if (shouldLog) {
                         console.log(`   Processing full word`);
@@ -889,11 +892,23 @@ class BatchController {
                         let allPhonemes = [];
 
                         processedData.result.forEach((item, index) => {
+                            // Skip empty parts
+                            if (!item.part || item.part.trim() === '') {
+                                if (shouldLog) {
+                                    console.log(`   Skipping empty part at index ${index}`);
+                                }
+                                return;
+                            }
+                            
                             if (item.parts && Array.isArray(item.parts) && item.parts.length > 0) {
-                                allParts = [...allParts, ...item.parts];
+                                // Filter out empty parts
+                                const validParts = item.parts.filter(p => p && p.trim() !== '');
+                                allParts = [...allParts, ...validParts];
                             }
                             if (item.phonemes && Array.isArray(item.phonemes) && item.phonemes.length > 0) {
-                                allPhonemes = [...allPhonemes, ...item.phonemes];
+                                // Filter out empty phonemes
+                                const validPhonemes = item.phonemes.filter(p => p && p.trim() !== '');
+                                allPhonemes = [...allPhonemes, ...validPhonemes];
                             }
                         });
                         
