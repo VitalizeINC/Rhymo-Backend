@@ -467,8 +467,7 @@ class BatchController {
             console.log(`\n=== BATCH PROCESSING START ===`);
             console.log(`Total WordBatch records to process: ${wordBatches.length}`);
             
-            // Search for specific word if needed (for debugging)
-            const searchWord = "مَسموم‌کُنَندِه";
+            // Search for target word for debugging
             const foundWord = wordBatches.find(wb => 
                 wb.organizedGrapheme.includes("مَسموم") && wb.organizedGrapheme.includes("کُنَندِه")
             );
@@ -479,6 +478,8 @@ class BatchController {
                 const nimFaselehChar = String.fromCharCode(0x200C);
                 const hasNimFaseleh = foundWord.organizedGrapheme.includes(nimFaselehChar);
                 console.log(`   Has nim faseleh (U+200C): ${hasNimFaseleh}`);
+            } else {
+                console.log(`\n⚠️ TARGET WORD "مَسموم‌کُنَندِه" NOT FOUND in batch`);
             }
 
             const processor = processControllerInstance;
