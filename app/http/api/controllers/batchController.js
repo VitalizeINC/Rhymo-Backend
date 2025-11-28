@@ -710,6 +710,12 @@ class BatchController {
                                     }
                                     
                                     // Double-check it's not in Word DB (might have been added by getWordDetails if pass was true)
+                                    // Check for ANY word (approved or not) to see if it exists
+                                    const anyExistingWord = await Word.findOne({ 
+                                        fullWord: trimmedPart
+                                    });
+                                    
+                                    // Update existingWord to be the non-approved one (or null)
                                     existingWord = await Word.findOne({ 
                                         fullWord: trimmedPart,
                                         approved: false // Only consider non-approved words
@@ -718,7 +724,7 @@ class BatchController {
                                     let wordWasJustCreated = false;
                                     
                                     // Save as Word if it doesn't exist AND has valid phonemes AND is not approved
-                                    if (!existingWord && !approvedPartWord && partResult.parts && partResult.parts.length > 0 && 
+                                    if (!anyExistingWord && !approvedPartWord && partResult.parts && partResult.parts.length > 0 && 
                                         partResult.phonemes && partResult.phonemes.length > 0) {
                                         // Calculate space and nim faseleh positions for this part
                                         let spacePositions = [];
@@ -783,13 +789,21 @@ class BatchController {
                                             processedParts: partParts,
                                             processedPhonemes: partPhonemes,
                                             processedAt: new Date(),
-                                            addedToWords: existingWord || wordWasJustCreated
+                                            addedToWords: !!(anyExistingWord || wordWasJustCreated)  // Convert to boolean - check ANY word, not just non-approved
                                         });
                                         
-                                        await newPartWordBatch.save();
-                                        
-                                        if (isTargetWord) {
-                                            console.log(`  ✓ Created WordBatch record for individual part: "${trimmedPart}"`);
+                                        try {
+                                            await newPartWordBatch.save();
+                                            
+                                            if (shouldLog) {
+                                                console.log(`  ✓ Created WordBatch record for individual part: "${trimmedPart}"`);
+                                            }
+                                        } catch (saveError) {
+                                            console.error(`  ✗ ERROR saving WordBatch for part "${trimmedPart}":`, saveError.message);
+                                            if (shouldLog) {
+                                                console.error(`     Full error:`, saveError);
+                                            }
+                                            // Don't throw - continue processing other parts
                                         }
                                     } else if (existingWordBatch && partParts.length > 0 && partPhonemes.length > 0) {
                                         // Update existing WordBatch record if needed
