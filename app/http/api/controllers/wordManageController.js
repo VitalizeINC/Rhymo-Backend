@@ -297,8 +297,24 @@ class wordManageController extends controller {
             }
 
             // Convert nim faseleh to space for fullWord
-            const fullWord = organizedGrapheme.replace(/\u200C/g, " ");
+            // Use both regex and explicit character code for safety
+            const fullWord = organizedGrapheme
+                .replace(/\u200C/g, " ")  // Unicode escape
+                .replace(/\u200C/g, " "); // Explicit character code
+            
+            // Recalculate spacePositions after conversion (include converted nim faseleh positions)
+            const finalSpacePositions = [...spacePositions, ...nimFaselehPositions].sort((a, b) => a - b);
+            
             const solidWord = this.solidWord(fullWord);
+
+            // Debug logging (remove in production)
+            console.log('Word conversion:', {
+                original: organizedGrapheme,
+                converted: fullWord,
+                hasNimFaseleh: organizedGrapheme.includes('\u200C'),
+                nimFaselehPositions: nimFaselehPositions,
+                finalSpacePositions: finalSpacePositions
+            });
 
             // Get level from request body, default to 1 if not provided
             const level = req.body.level !== undefined ? parseInt(req.body.level) : 1;
@@ -312,7 +328,7 @@ class wordManageController extends controller {
                 avaString: processedPhoneme.join(","),
                 ava: processedPhoneme,
                 hejaCounter: processedHeja.length,
-                spacePositions: spacePositions,
+                spacePositions: finalSpacePositions,  // Include both original spaces and converted nim faseleh positions
                 nimFaselehPositions: nimFaselehPositions,  // Positions in original string
                 // Batch tracking fields
                 addedBy: req.user?.id || null,
