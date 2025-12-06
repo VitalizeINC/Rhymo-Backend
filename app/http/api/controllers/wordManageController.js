@@ -120,12 +120,21 @@ class wordManageController extends controller {
             approved: approved
         }
         
-        // Add search filter - search in both word and avaString fields
+        // Add search filter - search in word text or exact match in ava array
         if (search) {
-            query.$or = [
-                { word: {$regex: search, $options: 'i'} },
-                { avaString: {$regex: search, $options: 'i'} }
-            ]
+            // Check if search contains commas (phoneme sequence)
+            if (search.includes(',')) {
+                // Split by comma and trim each phoneme for exact matching
+                const searchPhonemes = search.split(',').map(p => p.trim()).filter(p => p)
+                // Match exact sequence in ava array
+                query.$or = [
+                    { word: {$regex: search, $options: 'i'} },
+                    { ava: searchPhonemes }
+                ]
+            } else {
+                // Regular text search in word field only
+                query.word = {$regex: search, $options: 'i'}
+            }
         }
         
         // Add level filter if provided
