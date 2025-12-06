@@ -617,8 +617,9 @@ Authorization: Bearer <admin_jwt_token>
 
 **Query Parameters:**
 - `page` (number, optional): Page number (default: 1)
-- `search` (string, optional): Search term to filter words
+- `search` (string, optional): Search term to filter words by word text or phonemes (ava)
 - `approved` (string, optional): Filter by approval status ("1" for approved, "0" for not approved)
+- `level` (number, optional): Filter by word level
 
 **Response:**
 ```json

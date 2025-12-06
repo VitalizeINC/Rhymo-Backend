@@ -113,8 +113,28 @@ class wordManageController extends controller {
         let search = req.query.search || ""
         let page = req.query.page || 1
         let approved = req.query.approved == "1" ? true : false
-        let count = await Word.countDocuments({approved: approved, word: {$regex: search, $options: 'i'}})
-        let words = await Word.paginate({approved: approved, word: {$regex: search, $options: 'i'}}, { page, sort: { createdAt: -1 }, limit: 25 })
+        let level = req.query.level !== undefined ? parseInt(req.query.level) : undefined
+        
+        // Build query object
+        let query = {
+            approved: approved
+        }
+        
+        // Add search filter - search in both word and avaString fields
+        if (search) {
+            query.$or = [
+                { word: {$regex: search, $options: 'i'} },
+                { avaString: {$regex: search, $options: 'i'} }
+            ]
+        }
+        
+        // Add level filter if provided
+        if (level !== undefined && !isNaN(level)) {
+            query.level = level
+        }
+        
+        let count = await Word.countDocuments(query)
+        let words = await Word.paginate(query, { page, sort: { createdAt: -1 }, limit: 25 })
         res.status(200).json({ words: words, count: count })
     }
 
