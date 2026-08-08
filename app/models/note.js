@@ -11,7 +11,12 @@ import mongoosePaginate from 'mongoose-paginate-v2';
  *   /            → بیت separator
  *   !word!       → rhyme group 1
  *   !!word!!     → rhyme group 2
- *   !!!word!!!   → rhyme group 3
+ *   !!!word!!!   → rhyme group 3   … the run length IS the group number
+ *
+ * `!` is the only marker character. The client expands a typed `!` to the run
+ * its group needs, so the writer never counts them — but the run is what makes
+ * `content` self-describing, and it is why the server can stay ignorant of
+ * groups entirely.
  *
  * The server never rewrites `content`; parsing and colouring happen client-side.
  * `wordRefs` caches the resolution of each marked word to a Word document so the
