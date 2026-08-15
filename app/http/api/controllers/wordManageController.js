@@ -3,6 +3,7 @@ import Word from '../../../models/word.js';
 import Batch from '../../../models/batch.js';
 import WordBatch from '../../../models/wordBatch.js';
 import applyOrthographyFixes from '../../../helpers/wordBatchPreprocessor.js';
+import englishRhymeController from './englishRhymeController.js';
 
 const longVowels = ['آ', 'و', 'ی', 'ا']
 const shortVowels = [String.fromCharCode(1614), String.fromCharCode(1615), String.fromCharCode(1616)]
@@ -89,8 +90,12 @@ class wordManageController extends controller {
         }
     }
     async suggestWord(req, res, next) {
+        if (req.query.lang === 'en') {
+            return englishRhymeController.suggestWord(req, res, next)
+        }
         let search = new RegExp(`^${req.query.string}`, 'i');
         let words = await Word.find({
+            lang: { $ne: 'en' },
             $or: [
               {
                 $and: [
@@ -530,6 +535,9 @@ class wordManageController extends controller {
 
 
     async getTraditionalRhymes(req, res, next) {
+        if (req.query.lang === 'en') {
+            return englishRhymeController.getTraditionalRhymes(req, res, next)
+        }
         let id = req.query.id
         let page = parseInt(req.query.page) || 1
         let limit = parseInt(req.query.limit) || 10
@@ -555,6 +563,9 @@ class wordManageController extends controller {
 
 
     async getRhymes(req, res, next) {
+        if (req.query.lang === 'en') {
+            return englishRhymeController.getRhymes(req, res, next)
+        }
         let filter = req.query.filter
         let id = req.query.id
         let initWord = await Word.findById(id)
@@ -616,13 +627,13 @@ class wordManageController extends controller {
         let fetchLimit = limit * 10
         let words = []
         if(!endsWith){
-            words = await Word.find({ avaString: searchAva, word: searchChar, hejaCounter: rhymeHeja })
+            words = await Word.find({ avaString: searchAva, word: searchChar, hejaCounter: rhymeHeja, lang: { $ne: 'en' } })
             .select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter')
             .limit(fetchLimit);
         }else{
             const rx = new RegExp(`${avaQuery}\\s*$`, 'u');
             console.log("searchFromLastAva", rx)
-            words = await Word.find({ avaString:rx, fullWord:endsWithRegex, word: searchChar})
+            words = await Word.find({ avaString:rx, fullWord:endsWithRegex, word: searchChar, lang: { $ne: 'en' } })
             .select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter')
             .limit(fetchLimit);
         }

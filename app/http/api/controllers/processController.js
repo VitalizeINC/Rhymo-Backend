@@ -1,5 +1,6 @@
 import controller from './controller.js';
 import Word from '../../../models/word.js';
+import englishRhymeController from './englishRhymeController.js';
 
 const longVowels = ['آ', 'و', 'ی', 'ا']
 const shortVowels = [String.fromCharCode(1614), String.fromCharCode(1615), String.fromCharCode(1616)]
@@ -9,6 +10,10 @@ const shortVowels = [String.fromCharCode(1614), String.fromCharCode(1615), Strin
 class processController extends controller {
     
     async getWordDetails(req, res, next) {
+        // English requests are handled by the CMUdict-based engine.
+        if (req.body.lang === 'en') {
+            return englishRhymeController.getWordDetails(req, res, next)
+        }
         let modalTitle = req.body.string
         // let {string, tashdid} = this.stringBootstrap(modalTitle)
         let string = modalTitle

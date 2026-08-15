@@ -70,8 +70,32 @@ class notepadController extends controller {
                 return res.status(400).json({ error: 'string is required' });
             }
 
+            // English: no diacritics or variants — a simple case-insensitive
+            // dictionary lookup. 'none' means the word isn't in cmudict (there
+            // is no English add-word flow).
+            if (req.query.lang === 'en') {
+                const lower = raw.toLowerCase();
+                const match = await Word.findOne({ fullWord: lower, lang: 'en' })
+                    .select('fullWord fullWordWithNimFaseleh word heja ava avaString hejaCounter');
+                return res.status(200).json({
+                    query: raw,
+                    solid: lower,
+                    status: match ? 'single' : 'none',
+                    matches: match ? [{
+                        id: match._id,
+                        fullWord: match.fullWord,
+                        word: match.word,
+                        heja: match.heja,
+                        ava: match.ava,
+                        avaString: match.avaString,
+                        hejaCounter: match.hejaCounter,
+                    }] : [],
+                });
+            }
+
             const forms = this.candidateForms(raw);
             const matches = await Word.find({
+                lang: { $ne: 'en' },
                 $or: [{ word: { $in: forms } }, { fullWord: { $in: forms } }],
             })
                 .select('fullWord fullWordWithNimFaseleh word heja ava avaString hejaCounter')

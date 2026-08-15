@@ -8,7 +8,10 @@
     "test:auth": "mocha test/auth.test.js --timeout 10000 --exit",
     "test:watch": "mocha test/**/*.test.js --timeout 10000 --watch",
     "start": "node server.js",
-    "seed:admins": "node scripts/seedAdmins.js"
+    "seed:admins": "node scripts/seedAdmins.js",
+    "seed:english": "node scripts/seedEnglishWords.js",
+    "validate:english": "node scripts/validateEnglishEngine.js resource/cmudict.dict",
+    "migrate:nearkeys": "node scripts/addNearRhymeKeys.js"
   },
   "type": "module",
   "author": "",

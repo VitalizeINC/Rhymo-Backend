@@ -28,6 +28,15 @@ const wordSchema = Schema({
     wordBatchId: { type: Schema.Types.ObjectId, ref: 'WordBatch', default: null },
     // Word level/category
     level: { type: Number, default: 1, required: true },
+    // Language of the word: 'fa' (Persian, default — legacy docs have no
+    // lang field and are treated as Persian) or 'en' (English/CMUdict).
+    lang: { type: String, enum: ['fa', 'en'], default: 'fa', index: true },
+    // English only: phones from the last stressed vowel to the end, stress
+    // stripped (e.g. "EY SH AH N"). Perfect rhymes share the same rhymeKey.
+    rhymeKey: { type: String, default: null, index: true },
+    // English only: slant-rhyme key — vowel sequence from the last stressed
+    // syllable + final consonant (e.g. "AA|Z" for palms/arms/bars).
+    nearRhymeKey: { type: String, default: null, index: true },
 }, { timestamps: true, toJSON: { virtuals: true } })
 
 wordSchema.plugin(mongoosePaginate);
