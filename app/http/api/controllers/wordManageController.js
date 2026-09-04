@@ -4,6 +4,8 @@ import Batch from '../../../models/batch.js';
 import WordBatch from '../../../models/wordBatch.js';
 import applyOrthographyFixes from '../../../helpers/wordBatchPreprocessor.js';
 import englishRhymeController from './englishRhymeController.js';
+import WordBank from '../../../models/wordBank.js';
+import mongoose from 'mongoose';
 
 const longVowels = ['آ', 'و', 'ی', 'ا']
 const shortVowels = [String.fromCharCode(1614), String.fromCharCode(1615), String.fromCharCode(1616)]
@@ -577,9 +579,11 @@ class wordManageController extends controller {
         let partsNumber = parseInt(req.query.partsNumber) || initWord.hejaCounter
         if(partsNumber == -1) partsNumber = initWord.hejaCounter
         let partsSkip = parseInt(req.query.partsSkip) || 0
-        if (partsNumber < 2){
+        // One آوا is a legitimate scope — rhyming on a single vowel is the
+        // widest net there is, and the notepad's rail lets a writer ask for it.
+        if (partsNumber < 1){
             return res.status(400).json({
-                error: "Parts number must be greater than 1"
+                error: "Parts number must be at least 1"
             })
         }
         
@@ -594,7 +598,335 @@ class wordManageController extends controller {
         res.status(200).json(response)
     }
 
-    async ryhmFinding(w, f, n, professional=true, page=1, limit=10, endsWith="") {
+    /**
+     * Word ids in the writer's bank, optionally narrowed to some folders.
+     *
+     *   ''/'all'  the whole bank
+     *   '<id>,…'  those drawers (plus `none` for بدون پوشه)
+     */
+    async bankWordIds(userId, foldersParam) {
+        const query = { user: userId };
+        const raw = (foldersParam || '').trim();
+        if (raw && raw !== 'all') {
+            const ids = [];
+            let includeUncategorised = false;
+            for (const token of raw.split(',').map((t) => t.trim()).filter(Boolean)) {
+                if (token === 'none' || token === 'null') {
+                    includeUncategorised = true;
+                } else if (mongoose.Types.ObjectId.isValid(token)) {
+                    ids.push(new mongoose.Types.ObjectId(token));
+                }
+            }
+            if (ids.length && includeUncategorised) {
+                query.$or = [{ folder: { $in: ids } }, { folder: null }];
+            } else if (ids.length) {
+                query.folder = { $in: ids };
+            } else if (includeUncategorised) {
+                query.folder = null;
+            }
+        }
+        const entries = await WordBank.find(query).select('word').limit(2000);
+        return entries.map((e) => e.word).filter(Boolean);
+    }
+
+    /**
+     * GET /compoundRhymes?ids=<w1,w2,…>&folders=&partsNumber=&partsSkip=&page=&limit=
+     *
+     * قافیهٔ ترکیبی — two or more rhymes standing side by side in a line are
+     * heard as one word: «بازپُرس بَخشَنده» is one sound, not two.
+     *
+     * So that is exactly how it is answered. The members' هجا and آوا are
+     * merged into a word that exists only for the length of this request, and
+     * that word is handed to the SAME rhyme search every ordinary word goes
+     * through — same scope rules, same post-processing, same shape of answer.
+     * Every result is therefore a real word from the dictionary; nothing is
+     * assembled, and nothing is invented.
+     *
+     * The merged word is never written back. It is a way of hearing two words,
+     * not a new entry — see test/compoundRhymes.integration.test.js.
+     */
+    async getCompoundRhymes(req, res, next) {
+        try {
+            const rawIds = (req.query.ids || '')
+                .split(',')
+                .map((t) => t.trim())
+                .filter((t) => mongoose.Types.ObjectId.isValid(t));
+            if (rawIds.length < 2) {
+                return res.status(400).json({ error: 'ids must name at least two words' });
+            }
+
+            const found = await Word.find({ _id: { $in: rawIds } })
+                .select('fullWord fullWordWithNimFaseleh word heja ava avaString hejaCounter spacePositions nimFaselehPositions lang');
+            // Keep the caller's order: the sound of a compound is not a set.
+            const byId = new Map(found.map((w) => [String(w._id), w]));
+            const members = rawIds.map((id) => byId.get(id)).filter(Boolean);
+            if (members.length < 2) {
+                return res.status(404).json({ error: 'Words not found' });
+            }
+            if (members.some((w) => w.lang === 'en')) {
+                return res.status(400).json({ error: 'Compound rhymes are Persian-only for now' });
+            }
+
+            // ---- the word that exists only for this request
+            const ava = members.flatMap((w) => w.ava);
+            const heja = members.flatMap((w) => w.heja);
+            const fullWord = members.map((w) => w.fullWord).join(' ');
+            const word = members.map((w) => w.word).join(' ');
+            const spacePositions = [];
+            let cursor = 0;
+            for (const w of members) {
+                for (const part of w.heja) {
+                    cursor += part.length;
+                    spacePositions.push(cursor);
+                }
+            }
+            const compound = {
+                _id: null,
+                fullWord,
+                fullWordWithNimFaseleh: fullWord,
+                word,
+                heja,
+                ava,
+                avaString: ava.join(','),
+                hejaCounter: ava.length,
+                spacePositions,
+                nimFaselehPositions: [],
+            };
+
+            // ---- and now it is just a word
+            const page = parseInt(req.query.page) || 1;
+            const limit = Math.min(parseInt(req.query.limit) || 60, 200);
+            const filter = req.query.filter || '';
+            const professional = req.query.professional !== 'false';
+            let partsNumber = parseInt(req.query.partsNumber);
+            if (!partsNumber || partsNumber < 1) partsNumber = compound.hejaCounter;
+            partsNumber = Math.min(partsNumber, compound.hejaCounter);
+            const partsSkip = Math.max(0, Math.min(parseInt(req.query.partsSkip) || 0, compound.hejaCounter - partsNumber));
+
+            // The notepad's source switch still governs: folders narrow the same
+            // search to the writer's own bank.
+            let restrictIds = null;
+            if (typeof req.query.folders === 'string') {
+                restrictIds = await this.bankWordIds(req.user.id, req.query.folders);
+                if (restrictIds.length === 0) {
+                    // An empty bank is an empty answer, but it must still be a
+                    // complete one: the caller reads `compound` and
+                    // `matchedParts` off every response.
+                    return res.status(200).json({
+                        rhymes: [], fullResponse: [], rhymeAva: [], heja: [], ids: [], highlight: [],
+                        members: members.map((w) => ({
+                            id: w._id, fullWord: w.fullWord, word: w.word, ava: w.ava, hejaCounter: w.hejaCounter,
+                        })),
+                        compound: {
+                            fullWord, word, heja, ava,
+                            avaString: compound.avaString,
+                            hejaCounter: compound.hejaCounter,
+                        },
+                        matchedParts: partsNumber,
+                        matchedWhole: partsNumber === compound.hejaCounter,
+                        scoped: true,
+                        selectedWord: compound,
+                        pagination: {
+                            currentPage: page, totalPages: 0, totalItems: 0, itemsPerPage: limit,
+                            hasNextPage: false, hasPrevPage: false, nextPage: null, prevPage: null,
+                        },
+                    });
+                }
+            }
+
+            // A compound is long by construction — two words' worth of syllables
+            // — and almost nothing in the dictionary carries a whole five-hejā
+            // sound. A writer answers a long rhyme on its tail, so when the
+            // caller has not asked for a particular scope we walk inward: the
+            // whole compound first, then one hejā shorter, and so on. The scope
+            // that answered is reported back, so the strip can say which part of
+            // the compound these rhymes actually match.
+            const asked = !!parseInt(req.query.partsNumber);
+            const floor = asked ? partsNumber : Math.max(2, partsNumber - 3);
+            let response = null;
+            let matchedParts = partsNumber;
+
+            for (let parts = partsNumber; parts >= floor; parts -= 1) {
+                const skip = asked ? partsSkip : compound.hejaCounter - parts;
+                const mainWord = await this.wordPreProcessing(compound, parts, skip);
+                response = await this.ryhmFinding(
+                    mainWord,
+                    filter,
+                    parts,
+                    professional,
+                    page,
+                    limit,
+                    '',
+                    restrictIds
+                );
+                matchedParts = parts;
+                if (asked || (response.ids && response.ids.length > 0)) break;
+            }
+
+            // A member of the compound is not an answer to it.
+            const memberIds = new Set(members.map((w) => String(w._id)));
+            const keep = response.ids
+                .map((id, i) => i)
+                .filter((i) => !memberIds.has(String(response.ids[i])));
+            const pick = (arr) => (Array.isArray(arr) ? keep.map((i) => arr[i]) : arr);
+
+            return res.status(200).json({
+                ...response,
+                rhymes: pick(response.rhymes),
+                fullResponse: pick(response.fullResponse),
+                rhymeAva: pick(response.rhymeAva),
+                heja: pick(response.heja),
+                ids: pick(response.ids),
+                highlight: pick(response.highlight),
+                members: members.map((w) => ({
+                    id: w._id,
+                    fullWord: w.fullWord,
+                    word: w.word,
+                    ava: w.ava,
+                    hejaCounter: w.hejaCounter,
+                })),
+                compound: {
+                    fullWord,
+                    word,
+                    heja,
+                    ava,
+                    avaString: compound.avaString,
+                    hejaCounter: compound.hejaCounter,
+                },
+                /** True when this search was narrowed to the writer's own bank. */
+                scoped: restrictIds !== null,
+                /** How many of the compound's hejā these answers actually rhyme on. */
+                matchedParts,
+                /** True when that is the whole compound rather than its tail. */
+                matchedWhole: matchedParts === compound.hejaCounter,
+                selectedWord: compound,
+            });
+        } catch (error) {
+            console.error('getCompoundRhymes failed:', error);
+            return res.status(500).json({ error: 'getCompoundRhymes failed', details: error.message });
+        }
+    }
+
+    /**
+     * GET /bankRhymes?id=<anchorWordId>&folders=<csv>&partsNumber=&limit=
+     *
+     * The same question getRhymes answers, asked of the writer's own word bank
+     * instead of the whole dictionary: "which of MY words rhyme with this?"
+     *
+     * `folders` selects the drawers to draw from — a comma-separated list of
+     * folder ids, `none` for بدون پوشه, empty/absent for the whole bank. This
+     * is what stands behind the notepad's "from my folders / from everything"
+     * switch.
+     *
+     * Matching is the same rule the dictionary search uses — the last N
+     * phonemes must be identical — applied to a set small enough to compare in
+     * memory. Because it works on phonemes, it is language-agnostic: an
+     * English bank matches by cmudict phonemes exactly the same way.
+     *
+     * Shaped like getRhymes so the client can read both with one mapping.
+     */
+    async getBankRhymes(req, res, next) {
+        try {
+            const anchor = await Word.findById(req.query.id)
+                .select('ava avaString word fullWord heja hejaCounter lang spacePositions nimFaselehPositions');
+            if (!anchor) {
+                return res.status(404).json({ error: 'Word not found' });
+            }
+
+            const limit = Math.min(parseInt(req.query.limit) || 200, 500);
+            let parts = parseInt(req.query.partsNumber);
+            if (!parts || parts < 1) parts = anchor.hejaCounter;
+            parts = Math.min(parts, anchor.ava.length);
+            if (parts < 1) {
+                return res.status(400).json({ error: 'Word has no phonemes to match on' });
+            }
+            // Which stretch of the anchor to rhyme on. Default is its tail, the
+            // same window the dictionary search uses when none is given.
+            let skip = parseInt(req.query.partsSkip);
+            if (Number.isNaN(skip) || skip < 0) skip = anchor.ava.length - parts;
+            skip = Math.max(0, Math.min(skip, anchor.ava.length - parts));
+
+            // ---- which drawers
+            const wordIds = (await this.bankWordIds(req.user.id, req.query.folders))
+                .filter((id) => String(id) !== String(anchor._id));
+
+            const empty = {
+                rhymes: [], fullResponse: [], rhymeAva: [], heja: [], ids: [], highlight: [],
+                selectedWord: anchor,
+                pagination: {
+                    currentPage: 1, totalPages: 0, totalItems: 0, itemsPerPage: limit,
+                    hasNextPage: false, hasPrevPage: false, nextPage: null, prevPage: null,
+                },
+            };
+            if (wordIds.length === 0) {
+                return res.status(200).json(empty);
+            }
+
+            const candidates = await Word.find({ _id: { $in: wordIds } })
+                .select('ava avaString word fullWord heja hejaCounter spacePositions nimFaselehPositions lang')
+                .limit(2000);
+
+            const tail = anchor.ava.slice(skip, skip + parts).join(',');
+            const anchorLangEn = anchor.lang === 'en';
+
+            const rhymes = [];
+            const fullResponse = [];
+            const rhymeAva = [];
+            const heja = [];
+            const ids = [];
+            const highlight = [];
+
+            for (const w of candidates) {
+                if ((w.lang === 'en') !== anchorLangEn) continue;
+                if (!Array.isArray(w.ava) || w.ava.length < parts) continue;
+                if (w.ava.slice(w.ava.length - parts).join(',') !== tail) continue;
+
+                rhymes.push(w.word);
+                fullResponse.push(w.fullWord);
+                rhymeAva.push(w.avaString);
+                heja.push(w.heja);
+                ids.push(w._id);
+
+                // Same highlight geometry the dictionary search returns, so a
+                // bank result renders identically to a dictionary one.
+                try {
+                    const startIndex = w.ava.length - parts;
+                    const hejaPart = await this.rhymeProcessing(w, startIndex, startIndex + parts);
+                    const from = w.fullWord.indexOf(hejaPart);
+                    highlight.push(from >= 0 ? [from, from + hejaPart.length - 1] : [-1, -1]);
+                } catch {
+                    highlight.push([-1, -1]);
+                }
+
+                if (ids.length >= limit) break;
+            }
+
+            return res.status(200).json({
+                rhymes,
+                fullResponse,
+                rhymeAva,
+                heja,
+                ids,
+                highlight,
+                selectedWord: anchor,
+                pagination: {
+                    currentPage: 1,
+                    totalPages: 1,
+                    totalItems: ids.length,
+                    itemsPerPage: limit,
+                    hasNextPage: false,
+                    hasPrevPage: false,
+                    nextPage: null,
+                    prevPage: null,
+                },
+            });
+        } catch (error) {
+            console.error('getBankRhymes failed:', error);
+            return res.status(500).json({ error: 'getBankRhymes failed', details: error.message });
+        }
+    }
+
+    async ryhmFinding(w, f, n, professional=true, page=1, limit=10, endsWith="", restrictIds=null) {
         console.log(n)
         let endsWithRegex = ""
         if(endsWith){
@@ -626,14 +958,17 @@ class wordManageController extends controller {
         // We'll fetch 3x the limit to ensure we have enough after filtering
         let fetchLimit = limit * 10
         let words = []
+        // An optional id restriction narrows the same search to a subset of the
+        // dictionary — the writer's own bank, when the notepad asks for that.
+        const restrict = restrictIds && restrictIds.length ? { _id: { $in: restrictIds } } : {};
         if(!endsWith){
-            words = await Word.find({ avaString: searchAva, word: searchChar, hejaCounter: rhymeHeja, lang: { $ne: 'en' } })
+            words = await Word.find({ ...restrict, avaString: searchAva, word: searchChar, hejaCounter: rhymeHeja, lang: { $ne: 'en' } })
             .select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter')
             .limit(fetchLimit);
         }else{
             const rx = new RegExp(`${avaQuery}\\s*$`, 'u');
             console.log("searchFromLastAva", rx)
-            words = await Word.find({ avaString:rx, fullWord:endsWithRegex, word: searchChar, lang: { $ne: 'en' } })
+            words = await Word.find({ ...restrict, avaString:rx, fullWord:endsWithRegex, word: searchChar, lang: { $ne: 'en' } })
             .select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter')
             .limit(fetchLimit);
         }

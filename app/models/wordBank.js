@@ -32,6 +32,8 @@ const wordBankSchema = Schema({
     note: { type: Schema.Types.ObjectId, ref: 'Note', default: null },
     // Free-form user label, e.g. a theme or a project name.
     tag: { type: String, default: null },
+    // The word bank drawer this entry lives in. null = بدون پوشه (uncategorised).
+    folder: { type: Schema.Types.ObjectId, ref: 'Folder', default: null, index: true },
     useCount: { type: Number, default: 1, required: true },
     lastUsedAt: { type: Date, default: Date.now },
 }, { timestamps: true, toJSON: { virtuals: true } });
@@ -39,6 +41,8 @@ const wordBankSchema = Schema({
 // One entry per (user, word). Re-adding an existing word bumps useCount instead.
 wordBankSchema.index({ user: 1, word: 1 }, { unique: true });
 wordBankSchema.index({ user: 1, createdAt: -1 });
+// Listing one drawer, newest first.
+wordBankSchema.index({ user: 1, folder: 1, createdAt: -1 });
 
 wordBankSchema.plugin(mongoosePaginate);
 

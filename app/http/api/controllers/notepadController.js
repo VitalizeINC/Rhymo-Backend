@@ -2,8 +2,18 @@ import controller from './controller.js';
 import Word from '../../../models/word.js';
 import WordBank from '../../../models/wordBank.js';
 import Note from '../../../models/note.js';
+import Folder from '../../../models/folder.js';
+import mongoose from 'mongoose';
 
 const ZWNJ = String.fromCharCode(0x200C);
+
+/**
+ * Words the notepad captures on its own — a rhyme it resolved, a suggestion the
+ * writer took — land here instead of loose in the bank. They are a record of
+ * what was written, not a collection the writer built, and mixing the two makes
+ * the bank useless. Deliberate saves still go wherever the writer says.
+ */
+const HISTORY_FOLDER_NAME = 'تاریخچه کلمات';
 
 // Fatha, damma, kasra, tashdid, sukun, tanvin — everything the analyser may emit.
 const DIACRITICS = [1611, 1612, 1613, 1614, 1615, 1616, 1617, 1618].map((c) =>
@@ -169,6 +179,189 @@ class notepadController extends controller {
         }
     }
 
+    // ------------------------------------------------------------------ folders
+
+    /**
+     * Translate a `folder` query parameter into a mongo value.
+     *
+     *   undefined / '' / 'all'  → undefined  (no folder condition at all)
+     *   'none'                  → null       (بدون پوشه)
+     *   '<id>'                  → ObjectId   (that drawer)
+     */
+    folderQuery(raw) {
+        const value = (raw || '').trim();
+        if (!value || value === 'all') return undefined;
+        if (value === 'none' || value === 'null') return null;
+        if (!mongoose.Types.ObjectId.isValid(value)) return undefined;
+        return new mongoose.Types.ObjectId(value);
+    }
+
+    /**
+     * The «تاریخچه کلمات» drawer for this user, made the first time the notepad
+     * captures something. An ordinary folder in every other way: it can be
+     * renamed, emptied or deleted, and it comes back when it is next needed.
+     */
+    async historyFolderId(userId) {
+        const existing = await Folder.findOne({ user: userId, name: HISTORY_FOLDER_NAME }).select('_id');
+        if (existing) return existing._id;
+        try {
+            const folder = new Folder({ user: userId, name: HISTORY_FOLDER_NAME });
+            await folder.save();
+            return folder._id;
+        } catch (error) {
+            // Two captures at once: whoever lost the race reads the winner's.
+            const raced = await Folder.findOne({ user: userId, name: HISTORY_FOLDER_NAME }).select('_id');
+            return raced ? raced._id : null;
+        }
+    }
+
+    /**
+     * GET /folders
+     * Every drawer the user has, each with how many words it holds, plus the
+     * implicit بدون پوشه drawer so the client can render one uniform list.
+     */
+    async getFolders(req, res, next) {
+        try {
+            const userId = new mongoose.Types.ObjectId(req.user.id);
+            const folders = await Folder.find({ user: userId }).sort({ createdAt: 1 });
+
+            const counts = await WordBank.aggregate([
+                { $match: { user: userId } },
+                { $group: { _id: '$folder', count: { $sum: 1 } } },
+            ]);
+            const countFor = new Map(
+                counts.map((c) => [c._id ? String(c._id) : 'none', c.count])
+            );
+
+            return res.status(200).json({
+                folders: folders.map((f) => ({
+                    _id: f._id,
+                    name: f.name,
+                    count: countFor.get(String(f._id)) || 0,
+                    createdAt: f.createdAt,
+                })),
+                uncategorized: countFor.get('none') || 0,
+                total: counts.reduce((sum, c) => sum + c.count, 0),
+            });
+        } catch (error) {
+            console.error('getFolders failed:', error);
+            return res.status(500).json({ error: 'getFolders failed', details: error.message });
+        }
+    }
+
+    /**
+     * POST /folder  { name }
+     */
+    async createFolder(req, res, next) {
+        try {
+            const name = (req.body.name || '').trim();
+            if (!name) {
+                return res.status(400).json({ error: 'name is required' });
+            }
+
+            const existing = await Folder.findOne({ user: req.user.id, name });
+            if (existing) {
+                return res.status(409).json({ error: 'Folder already exists', folder: existing });
+            }
+
+            const folder = new Folder({ user: req.user.id, name });
+            await folder.save();
+            return res.status(201).json({ folder: { _id: folder._id, name: folder.name, count: 0 } });
+        } catch (error) {
+            if (error && error.code === 11000) {
+                return res.status(409).json({ error: 'Folder already exists' });
+            }
+            console.error('createFolder failed:', error);
+            return res.status(500).json({ error: 'createFolder failed', details: error.message });
+        }
+    }
+
+    /**
+     * PUT /folder  { id, name }
+     */
+    async renameFolder(req, res, next) {
+        try {
+            const { id } = req.body;
+            const name = (req.body.name || '').trim();
+            if (!id || !name) {
+                return res.status(400).json({ error: 'id and name are required' });
+            }
+
+            const folder = await Folder.findOne({ _id: id, user: req.user.id });
+            if (!folder) {
+                return res.status(404).json({ error: 'Folder not found' });
+            }
+
+            const clash = await Folder.findOne({ user: req.user.id, name, _id: { $ne: folder._id } });
+            if (clash) {
+                return res.status(409).json({ error: 'Folder already exists' });
+            }
+
+            folder.name = name;
+            await folder.save();
+            return res.status(200).json({ folder: { _id: folder._id, name: folder.name } });
+        } catch (error) {
+            console.error('renameFolder failed:', error);
+            return res.status(500).json({ error: 'renameFolder failed', details: error.message });
+        }
+    }
+
+    /**
+     * DELETE /folder?id=<folderId>
+     * The drawer goes; the words stay. Everything inside falls back to بدون پوشه.
+     */
+    async deleteFolder(req, res, next) {
+        try {
+            const folder = await Folder.findOneAndDelete({ _id: req.query.id, user: req.user.id });
+            if (!folder) {
+                return res.status(404).json({ error: 'Folder not found' });
+            }
+            const moved = await WordBank.updateMany(
+                { user: req.user.id, folder: folder._id },
+                { $set: { folder: null } }
+            );
+            return res.status(200).json({ removed: true, wordsKept: moved.modifiedCount || 0 });
+        } catch (error) {
+            console.error('deleteFolder failed:', error);
+            return res.status(500).json({ error: 'deleteFolder failed', details: error.message });
+        }
+    }
+
+    /**
+     * POST /wordBank/move  { id, folderId }
+     * `folderId: null` moves the word back to بدون پوشه.
+     */
+    async moveWordBankEntry(req, res, next) {
+        try {
+            const { id, folderId = null } = req.body;
+            if (!id) {
+                return res.status(400).json({ error: 'id is required' });
+            }
+
+            let folder = null;
+            if (folderId) {
+                const owned = await Folder.findOne({ _id: folderId, user: req.user.id }).select('_id');
+                if (!owned) {
+                    return res.status(404).json({ error: 'Folder not found' });
+                }
+                folder = owned._id;
+            }
+
+            const entry = await WordBank.findOneAndUpdate(
+                { _id: id, user: req.user.id },
+                { $set: { folder } },
+                { new: true }
+            );
+            if (!entry) {
+                return res.status(404).json({ error: 'Entry not found' });
+            }
+            return res.status(200).json({ entry });
+        } catch (error) {
+            console.error('moveWordBankEntry failed:', error);
+            return res.status(500).json({ error: 'moveWordBankEntry failed', details: error.message });
+        }
+    }
+
     // ---------------------------------------------------------------- word bank
 
     /**
@@ -182,6 +375,9 @@ class notepadController extends controller {
             const source = req.query.source;
 
             const query = { user: req.user.id };
+            // folder=<id> one drawer · folder=none بدون پوشه · absent/all = everything
+            const folderFilter = this.folderQuery(req.query.folder);
+            if (folderFilter !== undefined) query.folder = folderFilter;
             if (search) {
                 const rx = new RegExp(this.stripDiacritics(search), 'i');
                 query.$or = [{ solidWord: rx }, { fullWord: rx }];
@@ -211,9 +407,22 @@ class notepadController extends controller {
      */
     async addToWordBank(req, res, next) {
         try {
-            const { wordId, source = 'manual', noteId = null, tag = null } = req.body;
+            const { wordId, source = 'manual', noteId = null, tag = null, folderId = null } = req.body;
             if (!wordId) {
                 return res.status(400).json({ error: 'wordId is required' });
+            }
+
+            // A folder is optional, but a folder that is named must be the
+            // caller's own — never another user's drawer.
+            let folder = null;
+            if (folderId) {
+                const owned = await Folder.findOne({ _id: folderId, user: req.user.id }).select('_id');
+                if (!owned) {
+                    return res.status(404).json({ error: 'Folder not found' });
+                }
+                folder = owned._id;
+            } else if (req.body.auto) {
+                folder = await this.historyFolderId(req.user.id);
             }
 
             const word = await Word.findById(wordId).select('fullWord word heja ava avaString hejaCounter');
@@ -227,6 +436,9 @@ class notepadController extends controller {
                 existing.lastUsedAt = new Date();
                 if (noteId && !existing.note) existing.note = noteId;
                 if (tag) existing.tag = tag;
+                // Re-adding into a folder re-files the word rather than
+                // duplicating it: the bank holds one entry per word.
+                if (folder) existing.folder = folder;
                 await existing.save();
                 return res.status(200).json({ entry: existing, created: false });
             }
@@ -239,6 +451,7 @@ class notepadController extends controller {
                 source,
                 note: noteId,
                 tag,
+                folder,
             });
             await entry.save();
 
