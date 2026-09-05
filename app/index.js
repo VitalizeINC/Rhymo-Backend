@@ -60,5 +60,14 @@ export default class Application {
         app.use(bodyParser.json());
         app.use(bodyParser.urlencoded({ extended: true }));
         app.use(cookieParser('v6v7l6c5f!@#'));
+
+        // Temporary: log what the app actually asks for, to tell a wrong
+        // request apart from a wrong answer. Set DEBUG_REQUESTS=1 to enable.
+        if (process.env.DEBUG_REQUESTS === '1') {
+            app.use((req, res, next) => {
+                console.log(`[req] ${req.method} ${req.originalUrl}`);
+                next();
+            });
+        }
     }
 }
