@@ -9,10 +9,6 @@ import mongoose from 'mongoose';
 
 const longVowels = ['آ', 'و', 'ی', 'ا']
 const shortVowels = [String.fromCharCode(1614), String.fromCharCode(1615), String.fromCharCode(1616)]
-// Arabic marks that sit on a letter rather than being one: fathatan…sukun, plus
-// shadda and the hamza carriers. Stripped before consonants are counted.
-const DIACRITIC_MARKS = [1611, 1612, 1613, 1614, 1615, 1616, 1617, 1618, 1619, 1620, 1621, 1648, 1652]
-    .map(c => String.fromCharCode(c))
 
 
 class wordManageController extends controller {
@@ -1117,63 +1113,31 @@ class wordManageController extends controller {
     ممکنه برای ی و واو نیاز به پردازش مضاعف باشد تا تشخیص دهیم نقش صامتی دارد یا مصوتی 
     از روی آوا می‌توان فهمید
     */
-    /**
-     * صامت‌های هر هجا — how many consonants a syllable carries.
-     *
-     * Counting letters is not enough, because ا و ی are sometimes consonants and
-     * sometimes the vowel itself. «وَر» is v+a+r — two consonants — but a letter
-     * count that treats و as a vowel says one, and پَروَردِه would then pass as a
-     * rhyme of مَنظَرِه when it is not.
-     *
-     * The آوا of the syllable settles it. اَ اِ اُ are written as marks, so every
-     * letter left after stripping the marks is a consonant. Every other آوا
-     * (آ او ای) is written with a letter of its own, so exactly one letter is
-     * spoken as the vowel and is not counted.
-     *
-     * Returns null when the آوا is missing — some rows carry fewer آوا than هجا,
-     * and a syllable we cannot read is not a syllable we should judge.
-     */
-    syllableConsonantCount(hejaPart, avaPart){
-        if(!hejaPart || !avaPart) return null
-        const letters = [...hejaPart].filter(ch =>
-            !DIACRITIC_MARKS.includes(ch) && ch !== ' ' && ch !== '\u200c'
-        )
-        const vowelHasOwnLetter = !shortVowels.includes(avaPart[avaPart.length - 1])
-        // A Persian syllable always opens on a consonant, so a count of zero means
-        // the spelling carries a glottal onset (word-initial آ) — that is one.
-        return Math.max(1, letters.length - (vowelHasOwnLetter ? 1 : 0))
-    }
-
-    /*
-    قافیهٔ حرفه‌ای — دو کلمه وقتی هم‌قافیه‌اند که تعداد صامت‌های هر هجا برابر باشد،
-    به جز هجای آخر که آزاد است.
-
-        مَنظَرِه   مَن(۲) ظَ(۱) رِه(۲)
-        رَفتَنَت   رَف(۲) تَ(۱) نَت(۲)      هجای آخر فرق کند هم قافیه است
-        پَروَردِه  پَر(۲) وَر(۲) دِه(۲)     هجای وسط فرق دارد، قافیه نیست
-
-    The rule this replaced compared only whether each syllable ENDED in a vowel.
-    That separates CV from CVC, but it cannot tell CVC from CVCC — رَفت (three)
-    passed as a match for مَن (two) — and it judged the last syllable too, which
-    wrongly dropped بَندَرِ and حَضرَتِ from مَنظَرِه.
-
-    Syllables are aligned from the END, because that is where the rhyme lives and
-    because the notepad's endsWith search compares words of different lengths.
-    */
     wordPostProcessing(words, heja, ava){
-        const seedCounts = heja.map((h, i) => this.syllableConsonantCount(h, ava[i]))
-        return words.filter(word => {
-            const counts = word.heja.map((h, i) => this.syllableConsonantCount(h, word.ava[i]))
-            // k counts back from the end; k = 0 is the last syllable, which is free.
-            const shared = Math.min(counts.length, seedCounts.length)
-            for(let k = 1; k < shared; k++){
-                const mine = counts[counts.length - 1 - k]
-                const theirs = seedCounts[seedCounts.length - 1 - k]
-                if(mine === null || theirs === null) continue
-                if(mine !== theirs) return false
+        let processedWords = []
+        for (let i = 0; i < words.length; i++) {
+            let word = words[i]
+            let isProfessional = true
+            for(let j = 0; j < word.heja.length; j++){
+                console.log("Checking word is professional rhyme: ", word.word)
+                let hejaPart = word.heja[j]
+                let lastVaj = hejaPart.split("").pop()
+                let incomingHeja = Object.assign([], heja)
+                let incomingHejaPart = incomingHeja[j]
+                let incomingLastVaj = incomingHejaPart.split("").pop()
+                let isLastVajVowel = longVowels.includes(lastVaj) || shortVowels.includes(lastVaj)
+                let isIncomingLastVajVowel = longVowels.includes(incomingLastVaj) || shortVowels.includes(incomingLastVaj)
+                let bothVowels = isLastVajVowel && isIncomingLastVajVowel || !isLastVajVowel && !isIncomingLastVajVowel
+                if(!bothVowels){
+                    console.log("Word is not professional")
+                    isProfessional = false
+                }
             }
-            return true
-        })
+            if(isProfessional){
+                processedWords.push(word)
+            }
+        }
+        return processedWords
     }
 }
 
