@@ -126,6 +126,21 @@ class wordManageController extends controller {
         let query = {
             approved: approved
         }
+
+        // Language filter. The two dictionaries live in one collection — ~126k
+        // English seeded from cmudict and ~14k Persian — so without this the
+        // approved list is 96% English and the Persian words are lost in it.
+        //
+        // Persian is "not en", never lang: "fa": 13,866 Persian words predate
+        // the lang field and carry no lang at all, so an equality test on "fa"
+        // would hide almost all of them.
+        const lang = req.query.lang
+        if (lang === 'en') {
+            query.lang = 'en'
+        } else if (lang === 'fa') {
+            query.lang = { $ne: 'en' }
+        }
+        // anything else (absent, "all") leaves both languages in, as before
         
         // Add search filter - search in word text or exact match in ava array
         if (search) {
