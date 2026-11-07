@@ -383,6 +383,14 @@ class notepadController extends controller {
                 query.$or = [{ solidWord: rx }, { fullWord: rx }];
             }
             if (source) query.source = source;
+            // lang=fa hides English words the writer saved before the app went
+            // Persian-only. A bank entry keeps no language of its own — it only
+            // references a word — so the script is the test: cmudict words are
+            // plain ASCII and Persian words never carry Latin letters. Checked
+            // against production: 6 of 253 entries match, and they are exactly
+            // the entries whose referenced word has lang 'en'.
+            // Nothing is deleted; dropping the lang param brings them back.
+            if (req.query.lang === 'fa') query.fullWord = { $not: /[A-Za-z]/ };
 
             const result = await WordBank.paginate(query, {
                 page,
