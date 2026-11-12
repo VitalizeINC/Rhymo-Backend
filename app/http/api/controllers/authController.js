@@ -6,6 +6,10 @@ import { findOrCreateUser } from '../services/socialAuthService.js';
 import User from '../../../models/user.js';
 import PendingUser from '../../../models/pendingUser.js';
 import emailService from '../../../helpers/emailService.js';
+import Note from '../../../models/note.js';
+import Folder from '../../../models/folder.js';
+import WordBank from '../../../models/wordBank.js';
+import Word from '../../../models/word.js';
 class authController extends controller {
 
     async appleLogin(req, res, next) {
@@ -299,8 +303,12 @@ class authController extends controller {
             try {
                 await emailService.sendEmailVerification(email, pendingUser.verificationCode);
             } catch (emailError) {
-                console.error('Email sending failed:', emailError);
-                return res.status(500).json({ 
+                console.error('Email sending failed:', emailError.message);
+                await PendingUser.updateOne(
+                    { _id: pendingUser._id, verificationCode: pendingUser.verificationCode },
+                    { $set: { verificationExpires: new Date(0) } }
+                );
+                return res.status(502).json({
                     error: 'Failed to send verification email. Please try again later.' 
                 });
             }
@@ -341,7 +349,7 @@ class authController extends controller {
             if (!user) {
                 // Don't reveal if user exists or not for security
                 return res.json({
-                    message: 'If an account with this email exists, a password reset link has been sent.'
+                    message: 'If an account with this email exists, a password reset code has been sent.'
                 });
             }
 
@@ -357,12 +365,12 @@ class authController extends controller {
             try {
                 await emailService.sendPasswordResetEmail(email, resetCode, user.name);
             } catch (emailError) {
-                console.error('Email sending failed:', emailError);
+                console.error('Email sending failed:', emailError.message);
                 // Continue even if email fails for security reasons
             }
 
             return res.json({
-                message: 'If an account with this email exists, a password reset link has been sent.'
+                message: 'If an account with this email exists, a password reset code has been sent.'
             });
 
         } catch (err) {
@@ -587,8 +595,12 @@ class authController extends controller {
             try {
                 await emailService.sendEmailVerification(email, pendingUser.verificationCode);
             } catch (emailError) {
-                console.error('Email sending failed:', emailError);
-                return res.status(500).json({ 
+                console.error('Email sending failed:', emailError.message);
+                await PendingUser.updateOne(
+                    { _id: pendingUser._id, verificationCode: pendingUser.verificationCode },
+                    { $set: { verificationExpires: new Date(0) } }
+                );
+                return res.status(502).json({
                     error: 'Failed to send verification email. Please try again later.' 
                 });
             }
@@ -637,6 +649,60 @@ class authController extends controller {
     async login(req, res, next) {
         // For backward compatibility, redirect to email/password login
         return this.emailPasswordLogin(req, res, next);
+    }
+
+    /**
+     * DELETE /account — erase the signed-in account and everything it owns.
+     *
+     * The App Store requires an account to be deletable from INSIDE the app
+     * (guideline 5.1.1(v)); a link to a web form does not satisfy it. Settings
+     * calls this directly.
+     *
+     * Erased: the writer's notes, their folders, and their word bank.
+     * Kept: the dictionary. `words` carries an optional `user` naming whoever
+     * contributed an entry, and those entries are shared by everyone — so the
+     * reference is unset rather than the word deleted. Removing them would tear
+     * holes in every other writer's rhymes.
+     *
+     * Any half-finished signup for the same address goes too, so the email is
+     * free to register again.
+     */
+    async deleteAccount(req, res, next) {
+        try {
+            const userId = req.user.id;
+            const user = await User.findById(userId);
+            if (!user) {
+                return res.status(404).json({ error: 'Account not found' });
+            }
+
+            const [notes, folders, bank] = await Promise.all([
+                Note.deleteMany({ user: userId }),
+                Folder.deleteMany({ user: userId }),
+                WordBank.deleteMany({ user: userId }),
+            ]);
+
+            // keep the shared dictionary, drop the authorship link
+            const words = await Word.updateMany({ user: userId }, { $unset: { user: 1 } });
+
+            if (user.email) {
+                await PendingUser.deleteMany({ email: user.email });
+            }
+
+            await User.deleteOne({ _id: userId });
+
+            return res.status(200).json({
+                deleted: true,
+                removed: {
+                    notes: notes.deletedCount || 0,
+                    folders: folders.deletedCount || 0,
+                    wordBank: bank.deletedCount || 0,
+                    wordsAnonymised: words.modifiedCount || 0,
+                },
+            });
+        } catch (error) {
+            console.error('deleteAccount failed:', error);
+            return res.status(500).json({ error: 'deleteAccount failed', details: error.message });
+        }
     }
 
 }

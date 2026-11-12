@@ -7,11 +7,14 @@ import processController from '../../../http/api/controllers/processController.j
 import soundController from '../../../http/api/controllers/soundController.js';
 import wordManageController from '../../../http/api/controllers/wordManageController.js';
 import authenticateUser from '../../../http/middleware/api/authenticateUser.js';
+import authController from '../../../http/api/controllers/authController.js';
 
 
 
 
 router.get('/user', authenticateUser.handle, homeController.user);
+// Account deletion must be reachable from inside the app (App Store 5.1.1(v))
+router.delete('/account', authenticateUser.handle, authController.deleteAccount);
 //Word
 router.get('/suggestWord', authenticateUser.handle, wordManageController.suggestWord);
 router.delete('/removeWord', authenticateUser.handle, wordManageController.removeWord);
