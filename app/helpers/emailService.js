@@ -1,200 +1,85 @@
 class EmailService {
-    constructor() {
-        this.smtp2goApiKey = process.env.SMTP2GO_API_KEY || 'api-92185494F7EF46419713E65A00EE34B9';
-        this.fromEmail = process.env.FROM_EMAIL || 'Rhymo-noreply@vitalize.dev'; // Change to a verified domain
-        this.fromName = process.env.FROM_NAME || 'Rhymo Team';
-        this.apiUrl = 'https://api.smtp2go.com/v3/email/send';
-    }
-
     async sendEmail(to, subject, html, text = null) {
-        try {
-            const emailData = {
-                sender: this.fromEmail,
+        const apiKey = process.env.RESEND_API_KEY;
+        if (!apiKey) throw new Error('RESEND_API_KEY is missing');
+
+        const fromEmail = process.env.FROM_EMAIL || 'no-reply@rhymo.vitalize.dev';
+        const fromName = process.env.FROM_NAME || 'Rhymo';
+        const response = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                from: `${fromName} <${fromEmail}>`,
                 to: Array.isArray(to) ? to : [to],
-                subject: subject,
-                html_body: html,
-                text_body: text || this.stripHtml(html)
-            };
+                subject,
+                html,
+                text: text || this.stripHtml(html)
+            }),
+            signal: AbortSignal.timeout(10_000),
+            redirect: 'error'
+        });
 
-            const response = await fetch(this.apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Smtp2go-Api-Key': this.smtp2goApiKey,
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(emailData)
-            });
-
-            const result = await response.json();
-
-            if (response.ok && result.data && result.data.succeeded > 0) {
-                console.log('Email sent successfully:', result.data.email_id);
-                return { success: true, messageId: result.data.email_id };
-            } else {
-                console.error('Email sending failed:', result);
-                return { 
-                    success: false, 
-                    error: result.data?.error || 'Failed to send email',
-                    details: result
-                };
-            }
-        } catch (error) {
-            console.error('Email sending failed:', error);
-            return { success: false, error: error.message };
-        }
+        if (!response.ok) throw new Error(`Resend rejected the email (HTTP ${response.status})`);
+        const { id } = await response.json();
+        if (!id) throw new Error('Resend did not return a message ID');
+        return { success: true, messageId: id };
     }
 
     async sendPasswordResetEmail(email, resetCode) {
-        const subject = 'کد بازیابی رمز عبور - Rhymo';
-        const html = `
-            <!DOCTYPE html>
-            <html dir="rtl" lang="fa">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>بازیابی رمز عبور</title>
-                <style>
-                    body { font-family: 'Tahoma', Arial, sans-serif; line-height: 1.6; color: #333; }
-                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-                    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-                    .code { background: #fff; border: 2px solid #667eea; padding: 20px; text-align: center; border-radius: 10px; margin: 20px 0; font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #667eea; }
-                    .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
-                    .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <div class="header">
-                        <h1>بازیابی رمز عبور</h1>
-                        <p>سامانه شعر و قافیه</p>
-                    </div>
-                    <div class="content">
-                        <p>سلام،</p>
-                        <p>درخواست بازیابی رمز عبور برای حساب کاربری شما دریافت شده است.</p>
-                        <p>کد بازیابی شما:</p>
-                        
-                        <div class="code">
-                            ${resetCode}
-                        </div>
-                        
-                        <div class="warning">
-                            <strong>توجه:</strong> این کد فقط تا ۱۰ دقیقه معتبر است.
-                        </div>
-                        
-                        <p>اگر شما این درخواست را نکرده‌اید، این ایمیل را نادیده بگیرید.</p>
-                        
-                        <p>با تشکر،<br>تیم Rhymo</p>
-                    </div>
-                    <div class="footer">
-                        <p>این ایمیل به صورت خودکار ارسال شده است. لطفاً به آن پاسخ ندهید.</p>
-                    </div>
-                </div>
-            </body>
-            </html>
-        `;
-
-        return await this.sendEmail(email, subject, html);
-    }
-
-    async sendWelcomeEmail(email) {
-        const subject = 'خوش آمدید به Rhymo';
-        const html = `
-            <!DOCTYPE html>
-            <html dir="rtl" lang="fa">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>خوش آمدید</title>
-                <style>
-                    body { font-family: 'Tahoma', Arial, sans-serif; line-height: 1.6; color: #333; }
-                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-                    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-                    .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <div class="header">
-                        <h1>خوش آمدید!</h1>
-                        <p>سامانه شعر و قافیه</p>
-                    </div>
-                    <div class="content">
-                        <p>سلام،</p>
-                        <p>به Rhymo خوش آمدید! ثبت نام شما با موفقیت انجام شد.</p>
-                        <p>حالا می‌توانید از تمام امکانات سامانه شعر و قافیه استفاده کنید:</p>
-                        <ul>
-                            <li>جستجوی کلمات و قافیه‌ها</li>
-                            <li>مدیریت کلمات شخصی</li>
-                            <li>دسترسی به دایره‌المعارف شعر</li>
-                        </ul>
-                        
-                        <p>اگر سوالی دارید، با ما در تماس باشید.</p>
-                        
-                        <p>با تشکر،<br>تیم Rhymo</p>
-                    </div>
-                    <div class="footer">
-                        <p>این ایمیل به صورت خودکار ارسال شده است. لطفاً به آن پاسخ ندهید.</p>
-                    </div>
-                </div>
-            </body>
-            </html>
-        `;
-
-        return await this.sendEmail(email, subject, html);
+        return this.sendCodeEmail(email, 'Reset your password', 'Enter this code in Rhymo to reset your password.', resetCode);
     }
 
     async sendEmailVerification(email, verificationCode) {
-        const subject = 'کد تایید ایمیل - Rhymo';
-        const html = `
-            <!DOCTYPE html>
-            <html dir="rtl" lang="fa">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>تایید ایمیل</title>
-                <style>
-                    body { font-family: 'Tahoma', Arial, sans-serif; line-height: 1.6; color: #333; }
-                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-                    .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-                    .code { background: #fff; border: 2px solid #667eea; padding: 20px; text-align: center; border-radius: 10px; margin: 20px 0; font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #667eea; }
-                    .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
-                    .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <div class="header">
-                        <h1>تایید ایمیل</h1>
-                        <p>سامانه شعر و قافیه</p>
-                    </div>
-                    <div class="content">
-                        <p>سلام،</p>
-                        <p>لطفاً ایمیل خود را تایید کنید تا حساب کاربری شما فعال شود.</p>
-                        <p>کد تایید شما:</p>
-                        
-                        <div class="code">
-                            ${verificationCode}
-                        </div>
-                        
-                        <div class="warning">
-                            <strong>توجه:</strong> این کد فقط تا ۱۰ دقیقه معتبر است.
-                        </div>
-                        
-                        <p>با تشکر،<br>تیم Rhymo</p>
-                    </div>
-                    <div class="footer">
-                        <p>این ایمیل به صورت خودکار ارسال شده است. لطفاً به آن پاسخ ندهید.</p>
-                    </div>
-                </div>
-            </body>
-            </html>
-        `;
+        return this.sendCodeEmail(email, 'Verify your email', 'Enter this code in Rhymo to finish creating your account.', verificationCode);
+    }
 
-        return await this.sendEmail(email, subject, html);
+    async sendCodeEmail(email, title, instruction, code) {
+        if (!/^\d{6}$/.test(code)) throw new Error('Invalid Rhymo email code');
+        const expiry = 'This code expires in 10 minutes.';
+        const ignore = 'If you didn’t request this, you can ignore this email.';
+        const codeBlock = `<p style="margin:24px 0 16px;padding:18px 12px;border-radius:16px;background:#A7AA8C;color:#1C1C1C;text-align:center;font:700 28px/1.2 Courier New,monospace;letter-spacing:6px;">${code}</p>`;
+        return this.sendEmail(
+            email,
+            `${title} · Rhymo`,
+            this.renderEmail(title, instruction, codeBlock + `<p style="margin:0;color:#A7AA8C;font-size:14px;">${expiry}</p>`, ignore),
+            `Rhymo\n\n${title}\n${instruction}\n\n${code}\n\n${expiry}\n${ignore}`
+        );
+    }
+
+    async sendWelcomeEmail(email) {
+        const title = 'Welcome to Rhymo';
+        const message = 'Your account is ready. Open Rhymo to get started.';
+        return this.sendEmail(email, title, this.renderEmail(title, message), `${title}\n\n${message}`);
+    }
+
+    renderEmail(title, message, content = '', footer = '') {
+        return `<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>${title} · Rhymo</title>
+</head>
+<body bgcolor="#1C1C1C" style="margin:0;background:#1C1C1C;color:#EBE4DA;font:16px/1.6 Arial,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" bgcolor="#1C1C1C">
+        <tr><td align="center" style="padding:32px 16px;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:440px;">
+                <tr><td style="padding:0 0 16px;color:#A7AA8C;font-size:20px;font-weight:700;">Rhymo</td></tr>
+                <tr><td bgcolor="#252823" style="padding:28px;border:1px solid #3A3E34;border-radius:16px;color:#EBE4DA;">
+                    <h1 style="margin:0 0 10px;font-size:28px;line-height:1.2;">${title}</h1>
+                    <p style="margin:0;color:#EBE4DA;">${message}</p>
+                    ${content}
+                </td></tr>
+                <tr><td style="padding:16px 0 0;color:#A7AA8C;font-size:13px;">${footer}</td></tr>
+            </table>
+        </td></tr>
+    </table>
+</body>
+</html>`;
     }
 
     stripHtml(html) {

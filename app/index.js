@@ -1,6 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
-dotenv.config();
+dotenv.config({ path: ['.env.local', '.env'] });
 import cors from 'cors';
 import http from 'http';
 import bodyParser from 'body-parser';
@@ -52,7 +52,7 @@ export default class Application {
     setConfig() {
         
         app.use(express.static(config.layout.view_dir));
-        app.use(express.static(config.layout.public_dir));
+        app.use(express.static(config.layout.public_dir, { extensions: ['html'] }));
         app.set('views', config.layout.view_dir);
         app.set("layout extractScripts", true);
         app.set("layout extractStyles", true);

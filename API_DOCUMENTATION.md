@@ -68,7 +68,7 @@ Start the registration process by sending a verification email.
 - `400`: `{ "error": "Password must be at least 6 characters long" }`
 - `409`: `{ "error": "User with this email already exists" }`
 - `429`: `{ "error": "Please wait X minutes before requesting a new verification code" }`
-- `500`: `{ "error": "Failed to send verification email. Please try again later." }`
+- `502`: `{ "error": "Failed to send verification email. Please try again later." }`
 
 **Note:** This endpoint only sends a verification email. The user account is created only after email verification is completed. The name is automatically generated from the email address (part before @).
 
@@ -119,7 +119,7 @@ Send a password reset code to the user's email.
 **Response:**
 ```json
 {
-  "message": "If an account with this email exists, a password reset link has been sent."
+  "message": "If an account with this email exists, a password reset code has been sent."
 }
 ```
 
@@ -726,29 +726,9 @@ Authorization: Bearer <admin_jwt_token>
 
 ## Email Service
 
-The API uses SMTP2GO for email delivery with the following configuration:
+Rhymo sends verification and password reset codes through Resend. Set `RESEND_API_KEY` in the backend environment or in the Git-ignored `.env.local` for local development. Set `FROM_EMAIL` to an address on a verified Resend domain. It defaults to `no-reply@rhymo.vitalize.dev`. `FROM_NAME` defaults to `Rhymo`.
 
-### Email Templates
-
-1. **Password Reset Email**: Contains a 6-digit verification code
-2. **Email Verification**: Contains a 6-digit verification code  
-3. **Welcome Email**: Simple welcome message without frontend links
-
-### Email Configuration
-
-```javascript
-Sender Email: Rhymo-noreply@vitalize.dev
-API Key: api-92185494F7EF46419713E65A00EE34B9
-API Endpoint: https://api.smtp2go.com/v3/email/send
-```
-
-### Environment Variables
-
-```bash
-SMTP2GO_API_KEY=api-92185494F7EF46419713E65A00EE34B9
-FROM_EMAIL=Rhymo-noreply@vitalize.dev
-FROM_NAME=Rhymo Team
-```
+[Resend email API](https://resend.com/docs/api-reference/emails/send-email)
 
 ---
 
@@ -881,7 +861,7 @@ To run the API locally:
   - Example: `host.exp.Exponent,com.yourapp.client`
   - If not set, audience validation is skipped (less secure but more flexible)
 - `GOOGLE_AUTH_CLIENT_ID`: Google OAuth client ID for Google Sign-In validation
-- `SMTP2GO_API_KEY`: SMTP2GO API key for email service
+- `RESEND_API_KEY`: Resend API key for verification and reset emails
 - `FROM_EMAIL`: Sender email address
 - `FROM_NAME`: Sender name
 
@@ -903,4 +883,3 @@ To run the API locally:
 - Word processing includes complex Persian language rules for syllable division
 - The API supports both traditional email/password authentication and modern social authentication
 - Admin functionality is available for word management and approval workflows
-- Email service is fully functional with SMTP2GO API integration 
