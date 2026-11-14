@@ -14,7 +14,24 @@ class authController extends controller {
 
     async appleLogin(req, res, next) {
         try {
-            const { identityToken, email: emailFromBody, user: appleOpaqueUser } = req.body.credential || {};
+            const {
+                identityToken,
+                email: emailFromBody,
+                user: appleOpaqueUser,
+                fullName,
+            } = req.body.credential || {};
+
+            // Apple puts the person's name in the CREDENTIAL, not in the identity
+            // token, and sends it only on the very first authorization. Reading
+            // payload.name (as this did) always gave undefined, so every Apple
+            // account was named after its email prefix — «dtyhb7h8t2» and the like.
+            // The app already asks for the FULL_NAME scope and posts fullName; this
+            // is the end that was dropping it.
+            const appleName =
+                [fullName?.givenName, fullName?.familyName]
+                    .filter(Boolean)
+                    .join(' ')
+                    .trim() || null;
 
             if (!identityToken && !appleOpaqueUser) {
                 return res.status(400).json({ error: 'identityToken or user is required' });
@@ -47,7 +64,7 @@ class authController extends controller {
                     provider: 'apple',
                     providerUserId: appleUserId,
                     email,
-                    name: payload.name || null,
+                    name: appleName,
                 });
 
                 // Attach opaque Apple user token for future lightweight logins
