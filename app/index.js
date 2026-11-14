@@ -18,6 +18,9 @@ export default class Application {
         this.setupExpress();
         this.setConfig();
         this.setRoutes();
+        // After the routes: Express only treats these as the last resort if
+        // everything they might catch is already registered.
+        this.setErrorHandlers();
         // Initialize MongoDB connection
         this.setMongoConnection().catch(err => {
             console.error('Failed to connect to MongoDB:', err);
@@ -27,6 +30,55 @@ export default class Application {
 
     setRoutes() {
         app.use('/api/v1', apiV1Routes);
+    }
+
+    /**
+     * What happens when a request does not go to plan.
+     *
+     * Without these, an unknown API path answered with Express's HTML "Cannot
+     * POST /api/v1/typo" page, and anything a handler threw became a bare 500
+     * with a stack trace in the log and no usable body — which is how the
+     * bodyless-POST crash stayed invisible until someone read the log.
+     */
+    setErrorHandlers() {
+        // An unknown path under /api/v1 is still an API call: answer in JSON.
+        app.use('/api/v1', (req, res) => {
+            res.status(404).json({
+                error: 'Not found',
+                path: `${req.method} ${req.originalUrl}`,
+            });
+        });
+
+        // Last resort. Four arguments is what makes Express treat this as an
+        // error handler rather than ordinary middleware — do not drop `next`.
+        app.use((err, req, res, next) => {
+            const status =
+                err.type === 'entity.parse.failed' ? 400 :
+                err.type === 'entity.too.large' ? 413 :
+                err.status || err.statusCode || 500;
+
+            // The whole error goes to the log, with the request that caused it,
+            // so a 500 can be traced without reproducing it.
+            console.error(`[${req.method} ${req.originalUrl}] -> ${status}`, err);
+
+            // A response already on its way cannot be replaced; let Express
+            // close it rather than throwing "headers already sent" on top.
+            if (res.headersSent) return next(err);
+
+            if (status === 400 && err.type === 'entity.parse.failed') {
+                return res.status(400).json({ error: 'Invalid JSON body' });
+            }
+            if (status === 413) {
+                return res.status(413).json({ error: 'Request body is too large' });
+            }
+            // Our own 4xx messages are written for the caller and are safe to
+            // show. A 5xx message is internal — it stays in the log.
+            return res.status(status).json({
+                error: status < 500
+                    ? (err.message || 'Request could not be handled')
+                    : 'Something went wrong on our side',
+            });
+        });
     }
 
     async setMongoConnection() {
@@ -59,6 +111,18 @@ export default class Application {
         app.set("layout", "home/master");
         app.use(bodyParser.json());
         app.use(bodyParser.urlencoded({ extended: true }));
+
+        // Express 4 gave handlers an empty object when a request carried no body;
+        // Express 5 leaves req.body undefined. Every handler that starts with
+        // `const { x } = req.body` — 22 of them — therefore threw a TypeError and
+        // answered 500 on a bodyless POST, where it should say 400. Restoring the
+        // old default fixes them all at once, and keeps their own validation as
+        // the thing that decides what a missing field means.
+        app.use((req, res, next) => {
+            if (req.body === undefined) req.body = {};
+            next();
+        });
+
         app.use(cookieParser('v6v7l6c5f!@#'));
 
         // Temporary: log what the app actually asks for, to tell a wrong
