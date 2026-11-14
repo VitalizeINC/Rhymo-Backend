@@ -860,7 +860,7 @@ To run the API locally:
 - `APPLE_AUDIENCE`: Comma-separated list of Apple client IDs for audience validation
   - Example: `host.exp.Exponent,com.yourapp.client`
   - If not set, audience validation is skipped (less secure but more flexible)
-- `GOOGLE_AUTH_CLIENT_ID`: Google OAuth client ID for Google Sign-In validation
+- `GOOGLE_AUTH_CLIENT_ID`: Comma-separated Google OAuth client IDs accepted as the token audience (iOS client ID, plus the Web client ID that Android sign-in uses)
 - `RESEND_API_KEY`: Resend API key for verification and reset emails
 - `FROM_EMAIL`: Sender email address
 - `FROM_NAME`: Sender name
