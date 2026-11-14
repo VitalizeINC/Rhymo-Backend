@@ -272,20 +272,15 @@ class authController extends controller {
                 });
             }
 
-            // Validate password strength (minimum 8 characters, must contain digit and letter)
-            if (password.length < 8) {
+            // Minimum 6 characters — the same rule the app checks before it sends
+            // the request. They used to disagree: the app accepted 6, this
+            // demanded 8 plus a digit and a letter, so a short or letters-only
+            // password passed in the app and was refused here, and the app showed
+            // only a generic failure. Change one side and change the other:
+            // see handleRegister in app/auth.tsx.
+            if (password.length < 6) {
                 return res.status(400).json({ 
-                    error: 'Password must be at least 8 characters long' 
-                });
-            }
-            
-            // Check if password contains at least one digit and one letter
-            const hasDigit = /\d/.test(password);
-            const hasLetter = /[a-zA-Z]/.test(password);
-            
-            if (!hasDigit || !hasLetter) {
-                return res.status(400).json({ 
-                    error: 'Password must contain at least one digit and one letter' 
+                    error: 'Password must be at least 6 characters long' 
                 });
             }
 
@@ -408,21 +403,10 @@ class authController extends controller {
                     error: 'Email, code, and new password are required' 
                 });
             }
-
-            // Validate password strength (minimum 8 characters, must contain digit and letter)
-            if (newPassword.length < 8) {
+            // Minimum 6 characters, matching handleResetPassword in app/auth.tsx.
+            if (newPassword.length < 6) {
                 return res.status(400).json({ 
-                    error: 'Password must be at least 8 characters long' 
-                });
-            }
-            
-            // Check if password contains at least one digit and one letter
-            const hasDigit = /\d/.test(newPassword);
-            const hasLetter = /[a-zA-Z]/.test(newPassword);
-            
-            if (!hasDigit || !hasLetter) {
-                return res.status(400).json({ 
-                    error: 'Password must contain at least one digit and one letter' 
+                    error: 'Password must be at least 6 characters long' 
                 });
             }
 
