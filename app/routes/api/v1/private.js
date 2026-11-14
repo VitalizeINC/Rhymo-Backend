@@ -7,6 +7,7 @@ import processController from '../../../http/api/controllers/processController.j
 import soundController from '../../../http/api/controllers/soundController.js';
 import wordManageController from '../../../http/api/controllers/wordManageController.js';
 import authenticateUser from '../../../http/middleware/api/authenticateUser.js';
+import attachUser from '../../../http/middleware/api/attachUser.js';
 import authController from '../../../http/api/controllers/authController.js';
 
 
@@ -21,8 +22,8 @@ router.delete('/removeWord', authenticateUser.handle, wordManageController.remov
 router.post('/saveWords', authenticateUser.handle, wordManageController.saveWords);
 
 //Proccess
-router.get('/getRhymes', wordManageController.getRhymes);
-router.get('/getTraditionalRhymes', wordManageController.getTraditionalRhymes)
+router.get('/getRhymes', attachUser.handle, wordManageController.getRhymes);
+router.get('/getTraditionalRhymes', attachUser.handle, wordManageController.getTraditionalRhymes)
 // router.get('/getPartsNumber', authenticateUser.handle, wordManageController.getPartsNumber);
 router.post('/getWordDetails', authenticateUser.handle, processController.getWordDetails);
 

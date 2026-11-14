@@ -1,5 +1,6 @@
 import controller from './controller.js';
 import Word from '../../../models/word.js';
+import { visibleWords } from '../services/wordVisibility.js';
 import {
   analyze,
   rhymeQuery,
@@ -98,7 +99,7 @@ class englishRhymeController extends controller {
    */
   async getRhymes(req, res, next) {
     const id = req.query.id;
-    const initWord = await Word.findById(id);
+    const initWord = await Word.findOne(visibleWords(req, { _id: id }));
     if (!initWord || initWord.lang !== 'en') {
       return res.status(404).json({ error: 'Word not found' });
     }
@@ -135,7 +136,7 @@ class englishRhymeController extends controller {
     }
 
     const fetchLimit = limit * 10;
-    let words = await Word.find(query)
+    let words = await Word.find(visibleWords(req, query))
       .select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter rhymeKey')
       .sort({ hejaCounter: 1, fullWord: 1 })
       .limit(fetchLimit);
@@ -153,7 +154,7 @@ class englishRhymeController extends controller {
           rhymeKey: { $ne: initWord.rhymeKey },
         };
         if (query.word) nearQuery.word = query.word; // same consonant filter
-        const nearWords = await Word.find(nearQuery)
+        const nearWords = await Word.find(visibleWords(req, nearQuery))
           .select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter rhymeKey')
           .sort({ hejaCounter: 1, fullWord: 1 })
           .limit(fetchLimit - words.length);
@@ -251,7 +252,7 @@ class englishRhymeController extends controller {
     let partsNumber = parseInt(req.query.partsNumber) || 1;
     if (partsNumber === -1) partsNumber = 1;
 
-    const word = await Word.findById(id);
+    const word = await Word.findOne(visibleWords(req, { _id: id }));
     if (!word || word.lang !== 'en') {
       return res.status(404).json({ error: 'Word not found' });
     }
@@ -259,11 +260,11 @@ class englishRhymeController extends controller {
     const rx = new RegExp(`${endsWith.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
 
     const fetchLimit = limit * 10;
-    const words = await Word.find({
+    const words = await Word.find(visibleWords(req, {
       lang: 'en',
       _id: { $ne: word._id },
       fullWord: rx,
-    })
+    }))
       .select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter')
       .sort({ hejaCounter: 1, fullWord: 1 })
       .limit(fetchLimit);
@@ -313,11 +314,11 @@ class englishRhymeController extends controller {
       `^${String(req.query.string || '').toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
       'i'
     );
-    const words = await Word.find({
+    const words = await Word.find(visibleWords(req, {
       lang: 'en',
       fullWord: search,
       word: { $not: /\s/ },
-    })
+    }))
       .sort({ hejaCounter: 1, fullWord: 1 })
       .limit(10);
     res.status(200).json(words);

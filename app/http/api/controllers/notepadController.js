@@ -4,6 +4,7 @@ import WordBank from '../../../models/wordBank.js';
 import Note from '../../../models/note.js';
 import Folder from '../../../models/folder.js';
 import mongoose from 'mongoose';
+import { visibleWords } from '../services/wordVisibility.js';
 
 const ZWNJ = String.fromCharCode(0x200C);
 
@@ -104,10 +105,10 @@ class notepadController extends controller {
             }
 
             const forms = this.candidateForms(raw);
-            const matches = await Word.find({
+            const matches = await Word.find(visibleWords(req, {
                 lang: { $ne: 'en' },
                 $or: [{ word: { $in: forms } }, { fullWord: { $in: forms } }],
-            })
+            }))
                 .select('fullWord fullWordWithNimFaseleh word heja ava avaString hejaCounter')
                 .limit(25);
 
@@ -151,7 +152,7 @@ class notepadController extends controller {
      */
     async wordAnalysis(req, res, next) {
         try {
-            const word = await Word.findById(req.query.id).select(
+            const word = await Word.findOne(visibleWords(req, { _id: req.query.id })).select(
                 'fullWord fullWordWithNimFaseleh word heja ava avaString hejaCounter spacePositions nimFaselehPositions level'
             );
             if (!word) {
@@ -433,7 +434,7 @@ class notepadController extends controller {
                 folder = await this.historyFolderId(req.user.id);
             }
 
-            const word = await Word.findById(wordId).select('fullWord word heja ava avaString hejaCounter');
+            const word = await Word.findOne(visibleWords(req, { _id: wordId })).select('fullWord word heja ava avaString hejaCounter');
             if (!word) {
                 return res.status(404).json({ error: 'Word not found' });
             }

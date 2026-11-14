@@ -6,6 +6,7 @@ import applyOrthographyFixes from '../../../helpers/wordBatchPreprocessor.js';
 import englishRhymeController from './englishRhymeController.js';
 import WordBank from '../../../models/wordBank.js';
 import mongoose from 'mongoose';
+import { visibleWords } from '../services/wordVisibility.js';
 
 const longVowels = ['آ', 'و', 'ی', 'ا']
 const shortVowels = [String.fromCharCode(1614), String.fromCharCode(1615), String.fromCharCode(1616)]
@@ -96,7 +97,7 @@ class wordManageController extends controller {
             return englishRhymeController.suggestWord(req, res, next)
         }
         let search = new RegExp(`^${req.query.string}`, 'i');
-        let words = await Word.find({
+        let words = await Word.find(visibleWords(req, {
             lang: { $ne: 'en' },
             $or: [
               {
@@ -112,7 +113,7 @@ class wordManageController extends controller {
                 ]
               }
             ]
-          }).limit(10)
+          })).limit(10)
         res.status(200).json(words)
     }
 
@@ -170,10 +171,24 @@ class wordManageController extends controller {
     }
 
     async removeWord(req, res, next) {
-        let id = req.query.id
-        let word = await Word.findById(id)
-        word.delete()
-        res.status(200).json()
+        const word = await Word.findById(req.query.id)
+        if (!word) {
+            return res.status(404).json({ error: "Word not found" })
+        }
+
+        // The dictionary is shared, so this is not a free delete. A person may
+        // take back a word they added themselves while it is still waiting for
+        // approval; once it is approved it belongs to everyone and only an
+        // admin may remove it, through the admin panel.
+        const mine = word.user && String(word.user) === String(req.user.id)
+        if (!mine || word.approved) {
+            return res.status(403).json({
+                error: "You can only remove a word you added, and only before it is approved"
+            })
+        }
+
+        await word.deleteOne()
+        return res.status(200).json()
     }
     async saveWords(req, res, next) {
         let newWordParts = req.body.data
@@ -224,7 +239,10 @@ class wordManageController extends controller {
                 hejaCounter: newWordParts[i].phonemes.length,
                 spacePositions: spacePositions,
                 nimFaselehPositions: nimFaselehPositions,
-                level: 1 // Default level
+                level: 1, // Default level
+                // Who added it. The word stays hidden from everyone else
+                // until an admin approves it, so it has to have an owner.
+                user: req.user ? req.user.id : null
             })
             await newWordPart.save();
             wordDetails = [...wordDetails, ...newWordParts[i].parts]
@@ -270,7 +288,8 @@ class wordManageController extends controller {
             nimFaselehPositions: nimFaselehPositions,
             ava: phonemes,
             hejaCounter: phonemes.length,
-            level: 1 // Default level
+            level: 1, // Default level
+            user: req.user ? req.user.id : null
         })
         await newWord.save();
         res.status(200).json({
@@ -558,13 +577,16 @@ class wordManageController extends controller {
         let id = req.query.id
         let page = parseInt(req.query.page) || 1
         let limit = parseInt(req.query.limit) || 10
-        let word = await Word.findById(id)
+        let word = await Word.findOne(visibleWords(req, { _id: id }))
+        if (!word) {
+            return res.status(404).json({ error: "Word not found" })
+        }
         let partsNumber = req.query.partsNumber || 1
         let filter = req.query.filter || ""
         if(partsNumber == -1) partsNumber = 1
         let endsWith = word.fullWord.split("").slice(word.fullWord.length - partsNumber, word.fullWord.length).join("")
         console.log("endsWith", endsWith)
-        let rhymes = await this.ryhmFinding(word, filter, 1, false, page, limit, endsWith)
+        let rhymes = await this.ryhmFinding(word, filter, 1, false, page, limit, endsWith, null, req)
         let vajs = word.fullWord.split("")
         rhymes.vajs = vajs
         rhymes.selectedWord = word
@@ -583,9 +605,9 @@ class wordManageController extends controller {
         if (req.query.lang === 'en') {
             return englishRhymeController.getRhymes(req, res, next)
         }
-        let filter = req.query.filter
+        let filter = req.query.filter || ""
         let id = req.query.id
-        let initWord = await Word.findById(id)
+        let initWord = await Word.findOne(visibleWords(req, { _id: id }))
         if (!initWord) {
             return res.status(404).json({
                 error: "Word not found"
@@ -608,7 +630,7 @@ class wordManageController extends controller {
         let professional = req.query.professional !== 'false' // default to true
         
         let mainWord = await this.wordPreProcessing(initWord, partsNumber, partsSkip)
-        let response = await this.ryhmFinding(mainWord, filter, partsNumber, professional, page, limit)
+        let response = await this.ryhmFinding(mainWord, filter, partsNumber, professional, page, limit, "", null, req)
         response.selectedWord = initWord
         res.status(200).json(response)
     }
@@ -670,7 +692,7 @@ class wordManageController extends controller {
                 return res.status(400).json({ error: 'ids must name at least two words' });
             }
 
-            const found = await Word.find({ _id: { $in: rawIds } })
+            const found = await Word.find(visibleWords(req, { _id: { $in: rawIds } }))
                 .select('fullWord fullWordWithNimFaseleh word heja ava avaString hejaCounter spacePositions nimFaselehPositions lang');
             // Keep the caller's order: the sound of a compound is not a set.
             const byId = new Map(found.map((w) => [String(w._id), w]));
@@ -772,7 +794,8 @@ class wordManageController extends controller {
                     page,
                     limit,
                     '',
-                    restrictIds
+                    restrictIds,
+                    req
                 );
                 matchedParts = parts;
                 if (asked || (response.ids && response.ids.length > 0)) break;
@@ -842,7 +865,7 @@ class wordManageController extends controller {
      */
     async getBankRhymes(req, res, next) {
         try {
-            const anchor = await Word.findById(req.query.id)
+            const anchor = await Word.findOne(visibleWords(req, { _id: req.query.id }))
                 .select('ava avaString word fullWord heja hejaCounter lang spacePositions nimFaselehPositions');
             if (!anchor) {
                 return res.status(404).json({ error: 'Word not found' });
@@ -877,7 +900,7 @@ class wordManageController extends controller {
                 return res.status(200).json(empty);
             }
 
-            const candidates = await Word.find({ _id: { $in: wordIds } })
+            const candidates = await Word.find(visibleWords(req, { _id: { $in: wordIds } }))
                 .select('ava avaString word fullWord heja hejaCounter spacePositions nimFaselehPositions lang')
                 .limit(2000);
 
@@ -941,8 +964,9 @@ class wordManageController extends controller {
         }
     }
 
-    async ryhmFinding(w, f, n, professional=true, page=1, limit=10, endsWith="", restrictIds=null) {
+    async ryhmFinding(w, f, n, professional=true, page=1, limit=10, endsWith="", restrictIds=null, viewer=null) {
         console.log(n)
+        f = f || ""
         let endsWithRegex = ""
         if(endsWith){
             endsWithRegex = new RegExp(`${endsWith}$`, 'u')
@@ -988,14 +1012,14 @@ class wordManageController extends controller {
         // dictionary — the writer's own bank, when the notepad asks for that.
         const restrict = restrictIds && restrictIds.length ? { _id: { $in: restrictIds } } : {};
         if(!endsWith){
-            words = await Word.find({ ...restrict, avaString: searchAva, word: searchChar, hejaCounter: rhymeHeja, lang: { $ne: 'en' } })
+            words = await Word.find(visibleWords(viewer, { ...restrict, avaString: searchAva, word: searchChar, hejaCounter: rhymeHeja, lang: { $ne: 'en' } }))
             .select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter')
             .sort({ _id: 1 })
             .limit(CANDIDATE_CAP);
         }else{
             const rx = new RegExp(`${avaQuery}\\s*$`, 'u');
             console.log("searchFromLastAva", rx)
-            words = await Word.find({ ...restrict, avaString:rx, fullWord:endsWithRegex, word: searchChar, lang: { $ne: 'en' } })
+            words = await Word.find(visibleWords(viewer, { ...restrict, avaString:rx, fullWord:endsWithRegex, word: searchChar, lang: { $ne: 'en' } }))
             .select('ava avaString word spacePositions nimFaselehPositions fullWord heja hejaCounter')
             .sort({ _id: 1 })
             .limit(CANDIDATE_CAP);

@@ -1,5 +1,6 @@
 import controller from './controller.js';
 import Word from '../../../models/word.js';
+import { visibleWords } from '../services/wordVisibility.js';
 
 /**
  * soundController — کارگاه هجا (the syllable workshop).
@@ -56,7 +57,7 @@ class soundController extends controller {
             }
 
             const rows = await Word.aggregate([
-                { $match: this.langQuery(lang) },
+                { $match: visibleWords(null, this.langQuery(lang)) },
                 { $unwind: '$ava' },
                 { $group: { _id: '$ava', count: { $sum: 1 } } },
                 { $sort: { count: -1 } },
@@ -121,7 +122,7 @@ class soundController extends controller {
                 query.hejaCounter = hejaCounter;
             }
 
-            const result = await Word.paginate(query, {
+            const result = await Word.paginate(visibleWords(req, query), {
                 page,
                 limit,
                 sort: { hejaCounter: 1, fullWord: 1 },

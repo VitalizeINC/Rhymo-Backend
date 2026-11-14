@@ -55,6 +55,8 @@ export default class Application {
             const status =
                 err.type === 'entity.parse.failed' ? 400 :
                 err.type === 'entity.too.large' ? 413 :
+                // A bad id in the URL is the caller's mistake, not ours.
+                err.name === 'CastError' ? 400 :
                 err.status || err.statusCode || 500;
 
             // The whole error goes to the log, with the request that caused it,
@@ -70,6 +72,9 @@ export default class Application {
             }
             if (status === 413) {
                 return res.status(413).json({ error: 'Request body is too large' });
+            }
+            if (err.name === 'CastError') {
+                return res.status(400).json({ error: `Invalid ${err.path || 'id'}` });
             }
             // Our own 4xx messages are written for the caller and are safe to
             // show. A 5xx message is internal — it stays in the log.
