@@ -13,13 +13,28 @@ import { PostHog } from 'posthog-node';
  * is sent without creating a person profile.
  *
  * Off when POSTHOG_KEY is unset, so local runs stay quiet.
+ *
+ * The client is made on first use, not at import: this app loads .env in the
+ * body of app/index.js, which runs after every import has been evaluated, so
+ * at import time process.env does not have the key yet.
  */
-const KEY = process.env.POSTHOG_KEY;
-const HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
+let client; // undefined = not made yet, null = off
 
-export const posthog = KEY ? new PostHog(KEY, { host: HOST, flushAt: 20, flushInterval: 10000 }) : null;
+function getClient() {
+    if (client !== undefined) return client;
+    const key = process.env.POSTHOG_KEY;
+    client = key
+        ? new PostHog(key, { host: process.env.POSTHOG_HOST || 'https://us.i.posthog.com', flushAt: 20, flushInterval: 10000 })
+        : null;
+    if (client) {
+        process.once('SIGINT', () => flushAndExit(0));
+        process.once('SIGTERM', () => flushAndExit(0));
+    }
+    return client;
+}
 
 export function capture(userId, event, properties = {}) {
+    const posthog = getClient();
     if (!posthog) return;
     try {
         const props = { ...properties, source: 'server' };
@@ -36,6 +51,7 @@ export function capture(userId, event, properties = {}) {
 }
 
 export function captureException(error, userId, properties = {}) {
+    const posthog = getClient();
     if (!posthog) return;
     try {
         posthog.captureException(error, userId ? String(userId) : undefined, { ...properties, source: 'server' });
@@ -48,11 +64,7 @@ async function flushAndExit(code) {
     if (stopping) return;
     stopping = true;
     try {
-        if (posthog) await (posthog.shutdown ? posthog.shutdown(3000) : posthog._shutdown(3000));
+        if (client) await (client.shutdown ? client.shutdown(3000) : client._shutdown(3000));
     } catch { /* ignore */ }
     process.exit(code);
-}
-if (posthog) {
-    process.once('SIGINT', () => flushAndExit(0));
-    process.once('SIGTERM', () => flushAndExit(0));
 }
