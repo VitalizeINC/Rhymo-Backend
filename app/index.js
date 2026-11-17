@@ -8,6 +8,8 @@ import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import apiV1Routes from './routes/api/v1/index.js';
 import config from '../config/index.js';
+import { requestContext } from './logging/context.js';
+import { requestLog } from './logging/requestLog.js';
 
 
 const app = express();
@@ -46,6 +48,7 @@ export default class Application {
             res.status(404).json({
                 error: 'Not found',
                 path: `${req.method} ${req.originalUrl}`,
+                requestId: req.id,
             });
         });
 
@@ -57,6 +60,10 @@ export default class Application {
                 err.type === 'entity.too.large' ? 413 :
                 // A bad id in the URL is the caller's mistake, not ours.
                 err.name === 'CastError' ? 400 :
+                // Data that breaks the schema is bad input, not a crash.
+                err.name === 'ValidationError' ? 400 :
+                // Unique index hit: the thing already exists.
+                err.code === 11000 ? 409 :
                 err.status || err.statusCode || 500;
 
             // The whole error goes to the log, with the request that caused it,
@@ -74,7 +81,21 @@ export default class Application {
                 return res.status(413).json({ error: 'Request body is too large' });
             }
             if (err.name === 'CastError') {
-                return res.status(400).json({ error: `Invalid ${err.path || 'id'}` });
+                return res.status(400).json({ error: `Invalid ${err.path || 'id'}`, requestId: req.id });
+            }
+            if (err.name === 'ValidationError') {
+                return res.status(400).json({
+                    error: 'Some of the data is missing or invalid',
+                    fields: Object.keys(err.errors || {}),
+                    requestId: req.id,
+                });
+            }
+            if (err.code === 11000) {
+                return res.status(409).json({
+                    error: 'This already exists',
+                    fields: Object.keys(err.keyValue || {}),
+                    requestId: req.id,
+                });
             }
             // Our own 4xx messages are written for the caller and are safe to
             // show. A 5xx message is internal — it stays in the log.
@@ -82,6 +103,7 @@ export default class Application {
                 error: status < 500
                     ? (err.message || 'Request could not be handled')
                     : 'Something went wrong on our side',
+                requestId: req.id,
             });
         });
     }
@@ -107,7 +129,11 @@ export default class Application {
     }
 
     setConfig() {
-        
+        // First: every request gets an id and a context; every API response is
+        // logged and reported. See app/logging/.
+        app.use(requestContext);
+        app.use(requestLog);
+
         app.use(express.static(config.layout.view_dir));
         app.use(express.static(config.layout.public_dir, { extensions: ['html'] }));
         app.set('views', config.layout.view_dir);
@@ -130,13 +156,5 @@ export default class Application {
 
         app.use(cookieParser('v6v7l6c5f!@#'));
 
-        // Temporary: log what the app actually asks for, to tell a wrong
-        // request apart from a wrong answer. Set DEBUG_REQUESTS=1 to enable.
-        if (process.env.DEBUG_REQUESTS === '1') {
-            app.use((req, res, next) => {
-                console.log(`[req] ${req.method} ${req.originalUrl}`);
-                next();
-            });
-        }
     }
 }

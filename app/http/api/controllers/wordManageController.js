@@ -192,6 +192,43 @@ class wordManageController extends controller {
     }
     async saveWords(req, res, next) {
         let newWordParts = req.body.data
+
+        // Check the whole request before writing anything. Without this, a part
+        // whose analysis came back empty reached the database and failed there
+        // with a 500 halfway through, after earlier parts were already saved.
+        if (typeof req.body.s !== 'string' || !req.body.s.trim()) {
+            return res.status(400).json({ error: 'The word is missing', code: 'NO_WORD' })
+        }
+        if (!Array.isArray(newWordParts) || newWordParts.length === 0) {
+            return res.status(400).json({ error: 'The word has no parts', code: 'NO_PARTS' })
+        }
+        const filled = (a) => Array.isArray(a) && a.length > 0 && a.every(x => typeof x === 'string' && x.trim() !== '')
+        for (const item of newWordParts) {
+            if (!item || typeof item.part !== 'string') {
+                return res.status(400).json({ error: 'A part of the word is missing', code: 'BAD_PART' })
+            }
+            if (item.db) {
+                if (!item.id) {
+                    return res.status(400).json({ error: `"${item.part}" is marked as known but has no id`, code: 'BAD_PART', part: item.part })
+                }
+                continue
+            }
+            if (!filled(item.parts) || !filled(item.phonemes)) {
+                return res.status(400).json({
+                    error: `Could not work out the syllables of "${item.part}"`,
+                    code: 'NO_SYLLABLES',
+                    part: item.part,
+                })
+            }
+            if (item.parts.length !== item.phonemes.length) {
+                return res.status(400).json({
+                    error: `"${item.part}" has ${item.parts.length} syllables but ${item.phonemes.length} vowel sounds`,
+                    code: 'SYLLABLE_MISMATCH',
+                    part: item.part,
+                })
+            }
+        }
+
         let wordDetails = []
         let phonemes = []
         for (let i = 0; i < newWordParts.length; i++) {
@@ -201,6 +238,9 @@ class wordManageController extends controller {
             // Declare word in database
             if (newWordParts[i].db) {
                 let word = await Word.findById(newWordParts[i].id)
+                if (!word) {
+                    return res.status(400).json({ error: `"${newWordParts[i].part}" was not found`, code: 'PART_NOT_FOUND', part: newWordParts[i].part })
+                }
                 wordDetails = [...wordDetails, ...word.heja]
                 phonemes = [...phonemes, ...word.ava]
                 continue

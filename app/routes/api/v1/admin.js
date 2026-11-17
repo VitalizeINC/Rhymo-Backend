@@ -1,4 +1,5 @@
 import express from 'express';
+import { readRecent } from '../../../logging/logger.js';
 const router = express.Router();
 
 import wordManageController from '../../../http/api/controllers/wordManageController.js';
@@ -8,6 +9,18 @@ import authenticateAdmin from '../../../http/middleware/api/authenticateAdmin.js
 
 
 
+// Recent log entries, newest first, so a failure can be looked up without SSH.
+//   /admin/logs?kind=error&limit=50        failed requests with full context
+//   /admin/logs?kind=app&limit=100          every request
+//   &user=<id>  &path=/api/v1/saveWords     narrow it down
+router.get('/admin/logs', authenticateAdmin.handle, (req, res) => {
+    const kind = req.query.kind === 'app' ? 'app' : 'error';
+    const limit = Math.min(parseInt(req.query.limit) || 50, 500);
+    let rows = readRecent(kind, req.query.user || req.query.path ? 5000 : limit);
+    if (req.query.user) rows = rows.filter((r) => r.user === req.query.user);
+    if (req.query.path) rows = rows.filter((r) => r.path === req.query.path);
+    res.json({ kind, count: Math.min(rows.length, limit), entries: rows.slice(0, limit) });
+});
 router.get('/admin/checkToken', authenticateAdmin.handle, (req, res) => { res.status(200).json() });
 
 // Word management routes

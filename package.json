@@ -34,6 +34,7 @@
     "mongoose-paginate-v2": "^1.9.1",
     "multer": "^2.0.2",
     "nodemailer": "^6.9.12",
+    "posthog-node": "^5.21.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
