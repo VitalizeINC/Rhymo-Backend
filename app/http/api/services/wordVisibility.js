@@ -5,7 +5,8 @@
  * otherwise turn up in everybody's search the moment it is saved. The rule:
  *
  *   - a word is public once an admin approves it
- *   - before that, only the person who added it can see it
+ *   - before that, only the person who added it can see it, and anyone
+ *     else who added the same word (requestedBy): the word is stored once
  *
  * A word with no owner stays hidden until it is approved. That covers the
  * words from admin batch uploads, which are waiting for review, and the words
@@ -25,7 +26,7 @@
 export function visibleWordClause(req) {
     const userId = req && req.user ? req.user.id : null;
     if (!userId) return { approved: true };
-    return { $or: [{ approved: true }, { user: userId }] };
+    return { $or: [{ approved: true }, { user: userId }, { requestedBy: userId }] };
 }
 
 /**

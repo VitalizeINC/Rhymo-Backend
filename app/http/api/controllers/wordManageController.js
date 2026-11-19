@@ -106,6 +106,18 @@ class wordManageController extends controller {
             res.status(500).json("ویرایش کلمه انجام نشد")
         }
     }
+    /**
+     * Someone tried to add a word that is already stored. If it is still
+     * waiting for approval and it is not theirs, add them to requestedBy so
+     * they can see it too, without a second copy. Approved words are already
+     * visible to everyone, so nothing is needed then.
+     */
+    async shareWithRequester(word, req) {
+        if (!word || word.approved || !req.user || !req.user.id) return
+        if (word.user && String(word.user) === String(req.user.id)) return
+        await Word.updateOne({ _id: word._id }, { $addToSet: { requestedBy: req.user.id } })
+    }
+
     async suggestWord(req, res, next) {
         if (req.query.lang === 'en') {
             return englishRhymeController.suggestWord(req, res, next)
@@ -178,6 +190,18 @@ class wordManageController extends controller {
         if (level !== undefined && !isNaN(level)) {
             query.level = level
         }
+
+        // Where the words came from. The batch imports put ~99k words in the
+        // waiting list, which buried the few that people add from the app.
+        //   source=batch  words from batch uploads
+        //   source=users  everything else (what people added)
+        // No source: both, as before.
+        const fromBatch = { $or: [{ batchId: { $ne: null } }, { wordBatchId: { $ne: null } }] }
+        if (req.query.source === 'batch') {
+            query.$and = [...(query.$and || []), fromBatch]
+        } else if (req.query.source === 'users') {
+            query.$and = [...(query.$and || []), { batchId: null }, { wordBatchId: null }]
+        }
         
         let count = await Word.countDocuments(query)
         let words = await Word.paginate(query, { page, sort: { createdAt: -1 }, limit: 25 })
@@ -194,11 +218,25 @@ class wordManageController extends controller {
         // take back a word they added themselves while it is still waiting for
         // approval; once it is approved it belongs to everyone and only an
         // admin may remove it, through the admin panel.
-        const mine = word.user && String(word.user) === String(req.user.id)
-        if (!mine || word.approved) {
+        const me = String(req.user.id)
+        const others = (word.requestedBy || []).map(String)
+        const mine = word.user && String(word.user) === me
+        const requested = others.includes(me)
+        if ((!mine && !requested) || word.approved) {
             return res.status(403).json({
                 error: "You can only remove a word you added, and only before it is approved"
             })
+        }
+
+        // Other people added the same word: take it off this person's list
+        // only, and keep it for the rest.
+        if (requested) {
+            await Word.updateOne({ _id: word._id }, { $pull: { requestedBy: req.user.id } })
+            return res.status(200).json()
+        }
+        if (others.length > 0) {
+            await Word.updateOne({ _id: word._id }, { $set: { user: others[0] }, $pull: { requestedBy: others[0] } })
+            return res.status(200).json()
         }
 
         await word.deleteOne()
@@ -262,6 +300,7 @@ class wordManageController extends controller {
             // Check if word is already in database and not declared
             let check = await Word.findOne({ fullWord: newWordParts[i].part })
             if (check) {
+                await this.shareWithRequester(check, req)
                 wordDetails = [...wordDetails, ...check.heja]
                 phonemes = [...phonemes, ...check.ava]
                 continue
@@ -324,6 +363,9 @@ class wordManageController extends controller {
         // console.log(fullWordWithNimFaseleh, "sssssssssssssssss1")
         let check = await Word.findOne({ fullWord })
         if (check) {
+            // Already in the dictionary. Never store it twice: if it is still
+            // waiting for approval, let this person see it too.
+            await this.shareWithRequester(check, req)
             return res.status(200).json({
                 totalId: check._id
             })

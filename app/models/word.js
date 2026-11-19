@@ -4,6 +4,10 @@ import mongoosePaginate from 'mongoose-paginate-v2';
 
 const wordSchema = Schema({
     user: { type: Schema.Types.ObjectId, ref: 'User' },
+    // Other people who added the same word while it was still waiting for
+    // approval. The word is stored once; each of them can see it, as the
+    // first person (user) can.
+    requestedBy: { type: [{ type: Schema.Types.ObjectId, ref: 'User' }], default: undefined, index: true },
     fullWord: { type: String, required: true, unique: true },
     fullWordWithNimFaseleh: { type: String, required: true },
     word: { type: String, required: true },

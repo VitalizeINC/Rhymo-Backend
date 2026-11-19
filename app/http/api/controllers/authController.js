@@ -688,6 +688,7 @@ class authController extends controller {
 
             // keep the shared dictionary, drop the authorship link
             const words = await Word.updateMany({ user: userId }, { $unset: { user: 1 } });
+            await Word.updateMany({ requestedBy: userId }, { $pull: { requestedBy: userId } });
 
             if (user.email) {
                 await PendingUser.deleteMany({ email: user.email });
