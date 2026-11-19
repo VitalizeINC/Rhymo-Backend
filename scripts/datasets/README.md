@@ -23,3 +23,14 @@ Files (run from a folder on the server that has the data files):
 Data on the server (`/root/modern`): `homorich.parquet` (HomoRich-G2P-Persian,
 CC0), `fa_full.txt` (hermitdave/FrequencyWords, OpenSubtitles 2018),
 `/root/kaamel/KaamelDict.csv`. Python venv with pyarrow and pymongo.
+
+More datasets:
+- `analyze_more.py <db words tsv>`: reads `persiang2p.csv` (same sentences
+  as HomoRich: nothing new) and `neurai.csv` (Neurai/Persian_G2P, AFL-3.0,
+  everyday spoken Persian; its sound symbols ' Q ɡ are converted), counts
+  new words and writes `pairs-<Name>.json`.
+- `import_extra.py <Name> [--apply]`: adds one such dataset as its own
+  waiting list, with the same checks as HomoRich.
+
+Neurai is AFL-3.0: the app must credit it (Neura.info, Persian
+Grapheme-to-Phoneme Dataset, huggingface.co/datasets/Neurai/Persian_G2P).
