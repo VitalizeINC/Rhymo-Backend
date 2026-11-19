@@ -11,6 +11,10 @@ const wordSchema = Schema({
     // Which word list a batch word came from (KaamelDict, HomoRich, ...).
     // Empty for words people add from the app.
     dataset: { type: String, default: undefined, index: true },
+    // How common the word is in everyday speech: its place in a frequency
+    // list of movie subtitles (1 = most common, 999999 = not in the list).
+    // The admin waiting lists show common words first.
+    commonRank: { type: Number, default: undefined },
     fullWord: { type: String, required: true, unique: true },
     fullWordWithNimFaseleh: { type: String, required: true },
     word: { type: String, required: true },
@@ -48,5 +52,8 @@ const wordSchema = Schema({
 
 wordSchema.plugin(mongoosePaginate);
 
+
+// A dataset's waiting list, most common words first.
+wordSchema.index({ approved: 1, dataset: 1, commonRank: 1 })
 
 export default mongoose.model('Word', wordSchema);

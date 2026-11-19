@@ -209,8 +209,11 @@ class wordManageController extends controller {
         let count = await Word.countDocuments(query)
         // Name and email of who added each word, so the reviewer sees who
         // asked for it, not only how many.
+        // A dataset list is long: show the most common words first, so the
+        // familiar ones get reviewed before rare and old forms.
+        const sort = src.startsWith('dataset:') ? { commonRank: 1, _id: 1 } : { createdAt: -1 }
         let words = await Word.paginate(query, {
-            page, sort: { createdAt: -1 }, limit: 25,
+            page, sort, limit: 25,
             populate: [
                 { path: 'user', select: 'name email' },
                 { path: 'requestedBy', select: 'name email' },
