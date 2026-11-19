@@ -28,6 +28,7 @@ router.get('/admin/getWords', authenticateAdmin.handle, wordManageController.get
 router.post('/admin/save-batch-word', authenticateAdmin.handle, wordManageController.saveBatchWord);
 router.put('/admin/word-batches/:wordBatchId', authenticateAdmin.handle, wordManageController.updateWordBatch);
 router.put('/admin/updateWord', authenticateAdmin.handle, wordManageController.updateWord);
+router.get('/admin/word-sources', authenticateAdmin.handle, wordManageController.getWordSources);
 router.delete('/admin/deleteWord', authenticateAdmin.handle, wordManageController.deleteWord);
 router.put('/admin/updateWordStatus', authenticateAdmin.handle, wordManageController.updateWordStatus);
 

@@ -82,7 +82,7 @@ class wordManageController extends controller {
                 nimFaselehPositions: nimFaselehPositions,
                 heja: req.body.heja,
                 ava: req.body.ava,
-                avaString: req.body.ava.join(" - "),
+                avaString: req.body.ava.join(","),   // rhyme search matches "a,b,c"
                 hejaCounter: req.body.heja.length
             }
         }
@@ -191,16 +191,19 @@ class wordManageController extends controller {
             query.level = level
         }
 
-        // Where the words came from. The batch imports put ~99k words in the
+        // Where the words came from. The batch imports put ~100k words in the
         // waiting list, which buried the few that people add from the app.
-        //   source=batch  words from batch uploads
-        //   source=users  everything else (what people added)
-        // No source: both, as before.
-        const fromBatch = { $or: [{ batchId: { $ne: null } }, { wordBatchId: { $ne: null } }] }
-        if (req.query.source === 'batch') {
-            query.$and = [...(query.$and || []), fromBatch]
-        } else if (req.query.source === 'users') {
-            query.$and = [...(query.$and || []), { batchId: null }, { wordBatchId: null }]
+        //   source=users           what people added from the app
+        //   source=dataset:<name>  one word list (KaamelDict, HomoRich, ...)
+        //   source=batch           any batch word (older panels)
+        // No source: everything, as before.
+        const src = String(req.query.source || '')
+        if (src === 'users') {
+            query.$and = [...(query.$and || []), { batchId: null }, { wordBatchId: null }, { dataset: null }]
+        } else if (src.startsWith('dataset:')) {
+            query.$and = [...(query.$and || []), { dataset: src.slice('dataset:'.length) }]
+        } else if (src === 'batch') {
+            query.$and = [...(query.$and || []), { $or: [{ batchId: { $ne: null } }, { wordBatchId: { $ne: null } }, { dataset: { $ne: null } }] }]
         }
         
         let count = await Word.countDocuments(query)
@@ -214,6 +217,25 @@ class wordManageController extends controller {
             ],
         })
         res.status(200).json({ words: words, count: count })
+    }
+
+    /**
+     * The waiting lists for the admin panel: words people added, and one list
+     * per dataset, with how many words wait in each.
+     */
+    async getWordSources(req, res, next) {
+        const [users, perDataset] = await Promise.all([
+            Word.countDocuments({ approved: false, batchId: null, wordBatchId: null, dataset: null }),
+            Word.aggregate([
+                { $match: { approved: false, dataset: { $ne: null } } },
+                { $group: { _id: '$dataset', waiting: { $sum: 1 } } },
+                { $sort: { _id: 1 } },
+            ]),
+        ])
+        res.status(200).json({
+            users,
+            datasets: perDataset.map(d => ({ name: d._id, waiting: d.waiting })),
+        })
     }
 
     async removeWord(req, res, next) {

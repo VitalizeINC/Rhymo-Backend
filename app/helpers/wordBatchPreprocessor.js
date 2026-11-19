@@ -113,6 +113,15 @@ const DIAC = new Set([
     for (const raw of aSpoken) {
       let idx = raw + offset;
       if (idx < 0) continue;
+
+      // The A is already written right here. The batch maker counts letters
+      // from the sounds, and an unwritten sound before it (a doubled
+      // consonant as in جَذّاب = jazzAb, or ی read as both i and y as in
+      // زیاد = ziyAd) pushes its count one place past the real «ا». Adding
+      // another «ا» then made «زیااد» and «جَذااب». Skip it.
+      const isAlef = (t) => t && (t.b === 'ا' || t.b === 'آ');
+      const before = prevBaseIndex(tokens, Math.min(idx, tokens.length));
+      if (isAlef(tokens[idx]) || (before >= 0 && isAlef(tokens[before]))) continue;
   
       if (idx < tokens.length) {
         const { b } = tokens[idx];

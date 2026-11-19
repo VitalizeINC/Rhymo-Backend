@@ -8,6 +8,9 @@ const wordSchema = Schema({
     // approval. The word is stored once; each of them can see it, as the
     // first person (user) can.
     requestedBy: { type: [{ type: Schema.Types.ObjectId, ref: 'User' }], default: undefined, index: true },
+    // Which word list a batch word came from (KaamelDict, HomoRich, ...).
+    // Empty for words people add from the app.
+    dataset: { type: String, default: undefined, index: true },
     fullWord: { type: String, required: true, unique: true },
     fullWordWithNimFaseleh: { type: String, required: true },
     word: { type: String, required: true },
