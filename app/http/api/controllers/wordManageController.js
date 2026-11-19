@@ -204,7 +204,15 @@ class wordManageController extends controller {
         }
         
         let count = await Word.countDocuments(query)
-        let words = await Word.paginate(query, { page, sort: { createdAt: -1 }, limit: 25 })
+        // Name and email of who added each word, so the reviewer sees who
+        // asked for it, not only how many.
+        let words = await Word.paginate(query, {
+            page, sort: { createdAt: -1 }, limit: 25,
+            populate: [
+                { path: 'user', select: 'name email' },
+                { path: 'requestedBy', select: 'name email' },
+            ],
+        })
         res.status(200).json({ words: words, count: count })
     }
 
