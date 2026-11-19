@@ -40,9 +40,20 @@ class wordManageController extends controller {
     async updateWord(req, res, next) {
         let id = req.query.id
         let word = await Word.findById(id)
-        let check = await Word.find({ fullWordWithNimFaseleh: req.body.fullWord })
-        if(check.length > 1){
-            return res.status(409).json("Word already exists")
+        // fullWord must be unique, so editing a word into the spelling of
+        // another word fails. Find that other word first and say so plainly;
+        // the admin panel shows this text as it is.
+        if (typeof req.body.fullWord !== 'string' || !req.body.fullWord.trim()) {
+            return res.status(400).json("متن کلمه خالی است")
+        }
+        const sameSpelling = await Word.findOne({
+            fullWord: req.body.fullWord.replace(/\u200C/g, " "),
+            _id: { $ne: id },
+        }).select('approved')
+        if (sameSpelling) {
+            return res.status(409).json(
+                `«${req.body.fullWord}» از قبل در دیکشنری هست (${sameSpelling.approved ? 'تایید شده' : 'در انتظار تایید'}). این نسخه تکراری است؛ آن را حذف کن.`
+            )
         }
         let fullWord = req.body.fullWord
         console.log("Input fullWord:", fullWord)
@@ -88,8 +99,11 @@ class wordManageController extends controller {
             }
             res.status(200).json("Word updated successfully")
         } catch (error) {
-            console.log("error", error)
-            res.status(500).json({ error: "Word update failed", details: error.message })
+            console.error("updateWord failed:", error)
+            if (error && error.code === 11000) {
+                return res.status(409).json(`«${req.body.fullWord}» از قبل در دیکشنری هست. این نسخه تکراری است؛ آن را حذف کن.`)
+            }
+            res.status(500).json("ویرایش کلمه انجام نشد")
         }
     }
     async suggestWord(req, res, next) {
