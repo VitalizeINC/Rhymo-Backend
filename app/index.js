@@ -7,6 +7,7 @@ import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import apiV1Routes from './routes/api/v1/index.js';
+import blogSite from './routes/site/blog.js';
 import config from '../config/index.js';
 import { requestContext } from './logging/context.js';
 import { requestLog } from './logging/requestLog.js';
@@ -134,6 +135,11 @@ export default class Application {
         app.use(requestContext);
         app.use(requestLog);
 
+        // Blog images: names never change, so browsers may keep them a year.
+        app.use('/uploads/blog', express.static('public/uploads/blog', { maxAge: '365d', immutable: true, fallthrough: false }));
+        // Blog pages, plus the home pages' "latest posts" and sitemap.xml.
+        // Before the static files, which would otherwise answer those URLs.
+        app.use(blogSite);
         app.use(express.static(config.layout.view_dir));
         app.use(express.static(config.layout.public_dir, { extensions: ['html'] }));
         app.set('views', config.layout.view_dir);

@@ -7,6 +7,7 @@ import wordManageController from '../../../http/api/controllers/wordManageContro
 import batchController from '../../../http/api/controllers/batchController.js';
 import uploadMiddleware from '../../../http/middleware/api/uploadMiddleware.js';
 import authenticateAdmin from '../../../http/middleware/api/authenticateAdmin.js';
+import blogController, { imageUpload } from '../../../http/api/controllers/blogController.js';
 
 
 
@@ -24,6 +25,21 @@ router.get('/admin/logs', authenticateAdmin.handle, (req, res) => {
 });
 // Also says who is signed in, for the panel's top bar.
 router.get('/admin/checkToken', authenticateAdmin.handle, (req, res) => { res.status(200).json({ email: req.user?.email || null }) });
+
+// Blog: posts, tags, slug check, image upload and a preview of the public page.
+const blogImage = (req, res, next) => imageUpload.single('image')(req, res, (err) => {
+    if (!err) return next();
+    return res.status(400).json(err.code === 'LIMIT_FILE_SIZE' ? 'تصویر بزرگ‌تر از ۱۲ مگابایت است.' : 'تصویر بارگذاری نشد.');
+});
+router.get('/admin/blog/posts', authenticateAdmin.handle, blogController.list);
+router.post('/admin/blog/posts', authenticateAdmin.handle, blogController.create);
+router.get('/admin/blog/posts/:id', authenticateAdmin.handle, blogController.show);
+router.put('/admin/blog/posts/:id', authenticateAdmin.handle, blogController.update);
+router.delete('/admin/blog/posts/:id', authenticateAdmin.handle, blogController.remove);
+router.get('/admin/blog/posts/:id/preview', authenticateAdmin.handle, blogController.preview);
+router.get('/admin/blog/tags', authenticateAdmin.handle, blogController.tags);
+router.get('/admin/blog/slug-check', authenticateAdmin.handle, blogController.slugCheck);
+router.post('/admin/blog/images', authenticateAdmin.handle, blogImage, blogController.uploadImage);
 
 // Word management routes
 router.get('/admin/getWords', authenticateAdmin.handle, wordManageController.getWords);
