@@ -35,7 +35,7 @@ const T = {
         updated: 'به‌روزرسانی', minutes: (n) => `${faDigits(n)} دقیقه مطالعه`,
         ctaKicker: 'رایمو', ctaH2: 'قافیهٔ بعدی رو <em>با رایمو پیدا کن.</em>',
         ctaP: 'قافیه‌یاب، تحلیل هجا، بانک واژه و نوت‌پد، در یک اپ فارسی.',
-        ctaBtn: 'دریافت از App Store',
+        ctaBtn: 'دریافت از App Store', ctaHref: 'https://apps.apple.com/app/id6746544972',
         latestKicker: 'وبلاگ', latestH2: 'تازه‌ها از <em>وبلاگ.</em>',
         latestLede: 'آموزش‌ها و نکته‌های کوتاه برای شعر، ترانه و رپ فارسی.',
         allPosts: 'همهٔ نوشته‌ها', rss: 'خوراک RSS وبلاگ رایمو',
@@ -56,9 +56,9 @@ const T = {
         empty: 'No posts here yet. Check back soon.',
         tagTitle: (t) => `Tagged “${t}”`, tagDesc: (t) => `All Rhymo Blog posts tagged “${t}”.`,
         updated: 'Updated', minutes: (n) => `${n} min read`,
-        ctaKicker: 'Rhymo', ctaH2: 'Find your next rhyme <em>with Rhymo.</em>',
-        ctaP: 'Rhyme finder, syllable view, word bank and notepad, in one app.',
-        ctaBtn: 'Get it on the App Store',
+        ctaKicker: 'Rhymo in English', ctaH2: 'Your next line is <em>one word away.</em>',
+        ctaP: 'The English version of Rhymo is on its way. We will announce it here on the blog first.',
+        ctaBtn: 'More from the blog', ctaHref: '/en/blog/',
         latestKicker: 'Blog', latestH2: 'Fresh from <em>the blog.</em>',
         latestLede: 'Short guides and tips for poetry, songs and rap.',
         allPosts: 'All posts', rss: 'Rhymo Blog RSS feed',
@@ -372,7 +372,7 @@ function cta(lang) {
     const s = strings(lang);
     return `<div class="wrap"><div class="post-cta">
   <div><p class="kicker"><i></i>${s.ctaKicker}</p><h2>${s.ctaH2}</h2><p>${s.ctaP}</p></div>
-  <a class="btn olive" href="${APP_STORE}" rel="noopener"><span class="beat" aria-hidden="true"></span>${s.ctaBtn}</a>
+  <a class="btn olive" href="${s.ctaHref || APP_STORE}"${/^https?:/.test(s.ctaHref || APP_STORE) ? ' rel="noopener"' : ''}><span class="beat" aria-hidden="true"></span>${s.ctaBtn}</a>
 </div></div>`;
 }
 
