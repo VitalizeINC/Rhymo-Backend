@@ -214,8 +214,12 @@ class wordManageController extends controller {
         const sort = src.startsWith('dataset:') ? { commonRank: 1, _id: 1 } : { createdAt: -1 }
         // Page size: 25 by default, the panel offers 25 / 50 / 100.
         const limit = Math.min(100, Math.max(10, parseInt(req.query.limit) || 25))
+        // offset: the panel keeps approved rows on screen until the page
+        // changes, then asks for the next page shifted back by however many
+        // left the list, so no word is skipped.
+        const offset = req.query.offset !== undefined ? Math.max(0, parseInt(req.query.offset) || 0) : undefined
         let words = await Word.paginate(query, {
-            page, sort, limit,
+            ...(offset !== undefined ? { offset } : { page }), sort, limit,
             populate: [
                 { path: 'user', select: 'name email' },
                 { path: 'requestedBy', select: 'name email' },
