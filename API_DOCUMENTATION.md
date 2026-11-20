@@ -726,7 +726,7 @@ Authorization: Bearer <admin_jwt_token>
 
 ## Email Service
 
-Rhymo sends verification and password reset codes through Resend. Set `RESEND_API_KEY` in the backend environment or in the Git-ignored `.env.local` for local development. Set `FROM_EMAIL` to an address on a verified Resend domain. It defaults to `no-reply@rhymo.vitalize.dev`. `FROM_NAME` defaults to `Rhymo`.
+Rhymo sends verification and password reset codes through Resend. Set `RESEND_API_KEY` in the backend environment or in the Git-ignored `.env.local` for local development. Set `FROM_EMAIL` to an address on a verified Resend domain. It defaults to `no-reply@rhymo.app`. `FROM_NAME` defaults to `Rhymo`.
 
 [Resend email API](https://resend.com/docs/api-reference/emails/send-email)
 

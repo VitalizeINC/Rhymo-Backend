@@ -3,7 +3,9 @@ class EmailService {
         const apiKey = process.env.RESEND_API_KEY;
         if (!apiKey) throw new Error('RESEND_API_KEY is missing');
 
-        const fromEmail = process.env.FROM_EMAIL || 'no-reply@rhymo.vitalize.dev';
+        const fromEmail = process.env.FROM_EMAIL || 'no-reply@rhymo.app';
+        // Replies go to support@rhymo.app, which Cloudflare forwards to the team mailbox.
+        const replyTo = process.env.REPLY_TO_EMAIL || 'support@rhymo.app';
         const fromName = process.env.FROM_NAME || 'Rhymo';
         const response = await fetch('https://api.resend.com/emails', {
             method: 'POST',
@@ -13,6 +15,7 @@ class EmailService {
             },
             body: JSON.stringify({
                 from: `${fromName} <${fromEmail}>`,
+                reply_to: replyTo,
                 to: Array.isArray(to) ? to : [to],
                 subject,
                 html,
