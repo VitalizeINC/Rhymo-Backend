@@ -56,6 +56,13 @@ export function htmlToText(html = '') {
         .trim();
 }
 
+/** Text of the paragraphs only (no headings, lists or captions), for summaries. */
+export function paragraphText(html = '') {
+    const parts = String(html).match(/<p\b[^>]*>[\s\S]*?<\/p>/gi) || [];
+    const text = parts.map((p) => htmlToText(p)).join(' ').trim();
+    return text || htmlToText(html);
+}
+
 export function countWords(text = '') {
     const words = String(text).replace(new RegExp(ZWNJ, 'g'), '').match(/[\p{L}\p{N}]+/gu);
     return words ? words.length : 0;

@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { escapeHtml as esc, faDigits, headingIds, htmlToText, summarize } from './text.js';
+import { escapeHtml as esc, faDigits, headingIds, htmlToText, paragraphText, summarize } from './text.js';
 
 /**
  * Server-rendered blog pages for rhymo.app.
@@ -128,7 +128,7 @@ function img(cover, { sizes, eager = false, cls = '' } = {}) {
 }
 
 function excerptOf(post, max = 160) {
-    return post.excerpt || summarize(htmlToText(post.content || ''), max);
+    return post.excerpt || summarize(paragraphText(post.content || ''), max);
 }
 
 function card(post, { lead = false, headingTag = 'h3' } = {}) {

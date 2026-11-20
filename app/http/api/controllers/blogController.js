@@ -7,7 +7,7 @@ import sharp from 'sharp';
 import controller from './controller.js';
 import BlogPost from '../../../models/blogPost.js';
 import { sanitizePostHtml } from '../../../helpers/blog/sanitize.js';
-import { cleanTags, countWords, htmlToText, isValidSlug, readingMinutes, slugify, summarize } from '../../../helpers/blog/text.js';
+import { cleanTags, countWords, htmlToText, isValidSlug, paragraphText, readingMinutes, slugify, summarize } from '../../../helpers/blog/text.js';
 import { postPath, renderPost, SITE } from '../../../helpers/blog/site.js';
 import { clearBlogCache, relatedPosts } from '../../../routes/site/blog.js';
 
@@ -302,7 +302,7 @@ class BlogController extends controller {
         res.json({
             posts: rows.map((p) => ({
                 id: String(p._id), lang: p.lang, slug: p.slug, title: p.title,
-                excerpt: p.excerpt || summarize(htmlToText(p.content || ''), 160),
+                excerpt: p.excerpt || summarize(paragraphText(p.content || ''), 160),
                 cover: p.cover?.url ? { ...p.cover, url: p.cover.url.startsWith('/') ? SITE + p.cover.url : p.cover.url } : null,
                 tags: p.tags, publishedAt: p.publishedAt, readingMinutes: p.readingMinutes,
                 url: SITE + postPath(p),
