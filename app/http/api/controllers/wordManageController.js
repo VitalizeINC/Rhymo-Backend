@@ -80,9 +80,10 @@ class wordManageController extends controller {
                 word: this.solidWord(fullWord),
                 spacePositions: spacePositions,
                 nimFaselehPositions: nimFaselehPositions,
-                heja: req.body.heja,
-                ava: req.body.ava,
-                avaString: req.body.ava.join(","),   // rhyme search matches "a,b,c"
+                // No spaces around a syllable or vowel: "آ " is not "آ".
+                heja: req.body.heja.map(h => String(h).trim()),
+                ava: req.body.ava.map(v => String(v).trim()),
+                avaString: req.body.ava.map(v => String(v).trim()).join(","),   // rhyme search matches "a,b,c"
                 hejaCounter: req.body.heja.length
             }
         }
@@ -323,8 +324,8 @@ class wordManageController extends controller {
         let wordDetails = []
         let phonemes = []
         for (let i = 0; i < newWordParts.length; i++) {
-            newWordParts[i].parts = newWordParts[i].parts.map(part => part.replace(/y/g, 'ی').replace(/w/g, 'و'))
-            newWordParts[i].phonemes = newWordParts[i].phonemes.map(phoneme => phoneme.replace(/y/g, 'ی').replace(/w/g, 'و'))
+            newWordParts[i].parts = newWordParts[i].parts.map(part => part.replace(/y/g, 'ی').replace(/w/g, 'و').trim())
+            newWordParts[i].phonemes = newWordParts[i].phonemes.map(phoneme => phoneme.replace(/y/g, 'ی').replace(/w/g, 'و').trim())
             newWordParts[i].part = newWordParts[i].part.replace(/y/g, 'ی').replace(/w/g, 'و')
             // Declare word in database
             if (newWordParts[i].db) {

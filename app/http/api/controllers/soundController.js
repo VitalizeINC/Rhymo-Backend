@@ -64,11 +64,16 @@ class soundController extends controller {
                 { $limit: 60 },
             ]);
 
+            // Trim and merge: one stored "آ " (with a space) showed up as a
+            // second آ key in the app.
+            const merged = new Map();
+            for (const r of rows) {
+                const ava = String(r._id || '').trim();
+                if (ava) merged.set(ava, (merged.get(ava) || 0) + r.count);
+            }
             const payload = {
                 lang,
-                phonemes: rows
-                    .filter((r) => r._id && String(r._id).trim().length > 0)
-                    .map((r) => ({ ava: r._id, count: r.count })),
+                phonemes: [...merged].sort((a, b) => b[1] - a[1]).map(([ava, count]) => ({ ava, count })),
             };
             alphabetCache.set(lang, { at: Date.now(), payload });
             return res.status(200).json(payload);
