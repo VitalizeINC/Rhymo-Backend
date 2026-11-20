@@ -1,7 +1,7 @@
 /**
  * Checks the Cloudflare Access sign-in on admin requests.
  *
- * rhymo-admin.vitalize.dev is behind Cloudflare Access. Every request that
+ * admin.rhymo.app (and the old rhymo-admin.vitalize.dev) is behind Cloudflare Access. Every request that
  * passed Access carries a token signed by Cloudflare (header
  * Cf-Access-Jwt-Assertion, also the CF_Authorization cookie). The admin panel
  * sends its API calls through that hostname, so admin requests carry it.
