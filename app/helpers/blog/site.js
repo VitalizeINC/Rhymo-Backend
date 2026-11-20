@@ -208,7 +208,7 @@ ${og.extra || ''}
 ${extraHead}
 ${jsonLdList.map(jsonLd).join('\n')}
 ${sh.headTail}
-<link rel="stylesheet" href="/assets/blog.css?v=1">
+<link rel="stylesheet" href="/assets/blog.css?v=2">
 </head>
 <body class="blog-page">
 ${preview ? `<div class="preview-bar" role="status">${s.preview}</div>` : ''}`;
