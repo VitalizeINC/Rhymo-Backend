@@ -1,4 +1,5 @@
 import express from 'express';
+import adminUserController from '../../../http/api/controllers/adminUserController.js';
 import { readRecent } from '../../../logging/logger.js';
 const router = express.Router();
 
@@ -30,6 +31,12 @@ router.post('/admin/save-batch-word', authenticateAdmin.handle, wordManageContro
 router.put('/admin/word-batches/:wordBatchId', authenticateAdmin.handle, wordManageController.updateWordBatch);
 router.put('/admin/updateWord', authenticateAdmin.handle, wordManageController.updateWord);
 router.get('/admin/word-sources', authenticateAdmin.handle, wordManageController.getWordSources);
+
+// Users: list, one user, the words they added, change role and word levels.
+router.get('/admin/users', authenticateAdmin.handle, adminUserController.list);
+router.get('/admin/users/:id', authenticateAdmin.handle, adminUserController.show);
+router.get('/admin/users/:id/words', authenticateAdmin.handle, adminUserController.words);
+router.put('/admin/users/:id', authenticateAdmin.handle, adminUserController.update);
 router.delete('/admin/deleteWord', authenticateAdmin.handle, wordManageController.deleteWord);
 router.put('/admin/updateWordStatus', authenticateAdmin.handle, wordManageController.updateWordStatus);
 

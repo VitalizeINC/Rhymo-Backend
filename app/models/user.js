@@ -5,6 +5,8 @@ import mongoosePaginate from 'mongoose-paginate-v2';
 const userSchema = new Schema({
     name: { type: String, required: true },
     admin: { type: Boolean, default: false },
+    // Word levels (1–10) this person may see. Not set = all ten.
+    levels: { type: [Number], default: undefined },
     email: { type: String, required: true, unique: true, lowercase: true },
     password: { type: String, required: true },
     tokens: { type: [String], default: [] },

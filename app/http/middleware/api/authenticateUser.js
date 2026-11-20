@@ -1,9 +1,10 @@
 import middleware from '../middleware.js';
 import jwt from 'jsonwebtoken';
 import config from '../../../../config/index.js';
+import { levelsFor } from '../../api/services/userLevels.js';
 
 class AuthenticateUser extends middleware {
-    handle(req, res, next) {
+    async handle(req, res, next) {
         // return next();
         let token = req.headers.authorization;
         
@@ -25,6 +26,8 @@ class AuthenticateUser extends middleware {
             
             // Attach user information to request object
             req.user = decoded;
+            // The word levels this person may see (null = all).
+            req.user.levels = await levelsFor(decoded.id);
             
             return next();
         } catch (error) {

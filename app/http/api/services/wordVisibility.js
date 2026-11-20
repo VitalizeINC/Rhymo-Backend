@@ -18,6 +18,10 @@
  * cannot see a hidden word would try to insert a duplicate and fail.
  *
  * Admin routes are unfiltered on purpose: reviewing pending words is the job.
+ *
+ * Levels: an admin can limit a person to some word levels (1–10). They then
+ * see approved words of those levels only; their own words always. Set by the
+ * sign-in middleware as req.user.levels (null = all levels).
  */
 
 /**
@@ -25,8 +29,10 @@
  */
 export function visibleWordClause(req) {
     const userId = req && req.user ? req.user.id : null;
-    if (!userId) return { approved: true };
-    return { $or: [{ approved: true }, { user: userId }, { requestedBy: userId }] };
+    const levels = req && req.user && Array.isArray(req.user.levels) ? req.user.levels : null;
+    const approved = levels ? { approved: true, level: { $in: levels } } : { approved: true };
+    if (!userId) return approved;
+    return { $or: [approved, { user: userId }, { requestedBy: userId }] };
 }
 
 /**

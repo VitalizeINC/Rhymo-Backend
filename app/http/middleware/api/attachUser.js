@@ -1,6 +1,7 @@
 import middleware from '../middleware.js';
 import jwt from 'jsonwebtoken';
 import config from '../../../../config/index.js';
+import { levelsFor } from '../../api/services/userLevels.js';
 
 /**
  * Optional sign-in.
@@ -13,12 +14,13 @@ import config from '../../../../config/index.js';
  * authenticateUser is still the one to use when a route must have a user.
  */
 class AttachUser extends middleware {
-    handle(req, res, next) {
+    async handle(req, res, next) {
         const header = req.headers.authorization;
         if (!header || !header.startsWith('Bearer ')) return next();
 
         try {
             req.user = jwt.verify(header.split(' ')[1], config.jwt.secret_key);
+            req.user.levels = await levelsFor(req.user.id);
         } catch (error) {
             // A bad or expired token is treated as no token: the caller simply
             // sees what a signed-out visitor sees.
