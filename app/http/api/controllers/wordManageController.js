@@ -212,8 +212,10 @@ class wordManageController extends controller {
         // A dataset list is long: show the most common words first, so the
         // familiar ones get reviewed before rare and old forms.
         const sort = src.startsWith('dataset:') ? { commonRank: 1, _id: 1 } : { createdAt: -1 }
+        // Page size: 25 by default, the panel offers 25 / 50 / 100.
+        const limit = Math.min(100, Math.max(10, parseInt(req.query.limit) || 25))
         let words = await Word.paginate(query, {
-            page, sort, limit: 25,
+            page, sort, limit,
             populate: [
                 { path: 'user', select: 'name email' },
                 { path: 'requestedBy', select: 'name email' },

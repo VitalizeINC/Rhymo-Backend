@@ -21,7 +21,8 @@ router.get('/admin/logs', authenticateAdmin.handle, (req, res) => {
     if (req.query.path) rows = rows.filter((r) => r.path === req.query.path);
     res.json({ kind, count: Math.min(rows.length, limit), entries: rows.slice(0, limit) });
 });
-router.get('/admin/checkToken', authenticateAdmin.handle, (req, res) => { res.status(200).json() });
+// Also says who is signed in, for the panel's top bar.
+router.get('/admin/checkToken', authenticateAdmin.handle, (req, res) => { res.status(200).json({ email: req.user?.email || null }) });
 
 // Word management routes
 router.get('/admin/getWords', authenticateAdmin.handle, wordManageController.getWords);
