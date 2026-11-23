@@ -8,6 +8,7 @@ import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import apiV1Routes from './routes/api/v1/index.js';
 import blogSite from './routes/site/blog.js';
+import getApp from './routes/site/get.js';
 import config from '../config/index.js';
 import { requestContext } from './logging/context.js';
 import { requestLog } from './logging/requestLog.js';
@@ -140,6 +141,8 @@ export default class Application {
         // Blog pages, plus the home pages' "latest posts" and sitemap.xml.
         // Before the static files, which would otherwise answer those URLs.
         app.use(blogSite);
+        // rhymo.app/get: the right store for each phone.
+        app.use(getApp);
         app.use(express.static(config.layout.view_dir));
         app.use(express.static(config.layout.public_dir, { extensions: ['html'] }));
         app.set('views', config.layout.view_dir);

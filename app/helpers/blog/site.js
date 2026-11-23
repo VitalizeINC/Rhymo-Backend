@@ -34,8 +34,9 @@ const T = {
         tagTitle: (t) => `برچسب «${t}»`, tagDesc: (t) => `همهٔ نوشته‌های وبلاگ رایمو با برچسب «${t}».`,
         updated: 'به‌روزرسانی', minutes: (n) => `${faDigits(n)} دقیقه مطالعه`,
         ctaKicker: 'رایمو', ctaH2: 'قافیهٔ بعدی رو <em>با رایمو پیدا کن.</em>',
-        ctaP: 'قافیه‌یاب، تحلیل هجا، بانک واژه و نوت‌پد، در یک اپ فارسی.',
+        ctaP: 'قافیه‌یاب، تحلیل هجا، بانک واژه و نوت‌پد، در یک اپ فارسی؛ برای iPhone، iPad و Android.',
         ctaBtn: 'دریافت از App Store', ctaHref: 'https://apps.apple.com/app/id6746544972',
+        ctaBtn2: 'دریافت از Google Play', ctaHref2: 'https://play.google.com/store/apps/details?id=com.vitalize.rhymo',
         latestKicker: 'وبلاگ', latestH2: 'تازه‌ها از <em>وبلاگ.</em>',
         latestLede: 'آموزش‌ها و نکته‌های کوتاه برای شعر، ترانه و رپ فارسی.',
         allPosts: 'همهٔ نوشته‌ها', rss: 'خوراک RSS وبلاگ رایمو',
@@ -208,7 +209,7 @@ ${og.extra || ''}
 ${extraHead}
 ${jsonLdList.map(jsonLd).join('\n')}
 ${sh.headTail}
-<link rel="stylesheet" href="/assets/blog.css?v=3">
+<link rel="stylesheet" href="/assets/blog.css?v=4">
 </head>
 <body class="blog-page">
 ${preview ? `<div class="preview-bar" role="status">${s.preview}</div>` : ''}`;
@@ -372,7 +373,10 @@ function cta(lang) {
     const s = strings(lang);
     return `<div class="wrap"><div class="post-cta">
   <div><p class="kicker"><i></i>${s.ctaKicker}</p><h2>${s.ctaH2}</h2><p>${s.ctaP}</p></div>
-  <a class="btn olive" href="${s.ctaHref || APP_STORE}"${/^https?:/.test(s.ctaHref || APP_STORE) ? ' rel="noopener"' : ''}><span class="beat" aria-hidden="true"></span>${s.ctaBtn}</a>
+  <div class="post-cta-btns">
+    <a class="btn olive" href="${s.ctaHref || APP_STORE}"${/^https?:/.test(s.ctaHref || APP_STORE) ? ' rel="noopener"' : ''}><span class="beat" aria-hidden="true"></span>${s.ctaBtn}</a>
+    ${s.ctaBtn2 ? `<a class="btn olive" href="${s.ctaHref2}" rel="noopener"><span class="beat" aria-hidden="true"></span>${s.ctaBtn2}</a>` : ''}
+  </div>
 </div></div>`;
 }
 

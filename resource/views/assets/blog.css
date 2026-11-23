@@ -155,6 +155,7 @@ html[lang="en"] .bcard.lead .bcard-title { line-height: 1.1; }
 .post-cta .kicker { color: var(--yellow); }
 .post-cta h2 { font-size: clamp(24px, 3vw, 40px); margin: 10px 0 8px; font-weight: 800; }
 .post-cta p:not(.kicker) { color: rgb(241 235 228 / .8); max-width: 48ch; }
+.post-cta-btns { display: flex; flex-wrap: wrap; gap: 10px; }
 .post-cta .btn { background: var(--yellow); border-color: var(--yellow); color: var(--ink); }
 
 /* ---------- Home page section ---------- */
@@ -185,6 +186,7 @@ html[lang="en"] .bcard.lead .bcard-title { line-height: 1.1; }
   .related-head { flex-direction: column; align-items: start; }
   .post-cta { flex-direction: column; align-items: stretch; }
   .post-cta .btn { justify-content: center; }
+  .post-cta-btns { flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) {
   .bcard, .bcard-img img { transition: none; }

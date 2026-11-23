@@ -19,6 +19,8 @@
   /* On iPhone and iPad, "Get the app" opens the App Store right away. */
   var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   if (ios) $$("a[data-ios]").forEach(function (a) { a.href = a.dataset.ios; a.rel = "noopener"; });
+  /* On Android phones, it opens Google Play. */
+  if (/Android/i.test(navigator.userAgent)) $$("a[data-android]").forEach(function (a) { a.href = a.dataset.android; a.rel = "noopener"; });
 
   var menuBtn = $("#menu-btn");
   var setMenu = function (open) {

@@ -171,7 +171,7 @@ for (const [lang, route, file] of [['fa', '/', 'index.html'], ['en', '/en/', 'en
             const section = renderHomeSection(lang, trimForList(posts));
             if (!section) return page.replace(MARK, '');
             return page
-                .replace('</head>', '<link rel="stylesheet" href="/assets/blog.css?v=3">\n</head>')
+                .replace('</head>', '<link rel="stylesheet" href="/assets/blog.css?v=4">\n</head>')
                 .replace(MARK, section);
         });
         sendHtml(res, html);
