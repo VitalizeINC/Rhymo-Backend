@@ -12,6 +12,19 @@ const longVowels = ['آ', 'و', 'ی', 'ا']
 const shortVowels = [String.fromCharCode(1614), String.fromCharCode(1615), String.fromCharCode(1616)]
 
 
+
+// Words people added or asked for from the app: their own new words, and
+// words that were already waiting in a dataset list when someone added them.
+const ASKED_BY_USERS = {
+    $or: [
+        { batchId: null, wordBatchId: null, dataset: null },
+        { user: { $ne: null } },
+        { 'requestedBy.0': { $exists: true } },
+    ],
+}
+// The rest of a dataset list: nobody has asked for these yet.
+const NOT_ASKED = [{ user: null }, { 'requestedBy.0': { $exists: false } }]
+
 class wordManageController extends controller {
     async deleteWord(req, res, next) {
         let id = req.query.id
@@ -198,11 +211,14 @@ class wordManageController extends controller {
         //   source=dataset:<name>  one word list (KaamelDict, HomoRich, ...)
         //   source=batch           any batch word (older panels)
         // No source: everything, as before.
+        // A dataset word that someone asked for in the app (it was waiting
+        // there, then a person added it) counts as "users": it moves out of
+        // the dataset list, so the reviewer sees what people want first.
         const src = String(req.query.source || '')
         if (src === 'users') {
-            query.$and = [...(query.$and || []), { batchId: null }, { wordBatchId: null }, { dataset: null }]
+            query.$and = [...(query.$and || []), ASKED_BY_USERS]
         } else if (src.startsWith('dataset:')) {
-            query.$and = [...(query.$and || []), { dataset: src.slice('dataset:'.length) }]
+            query.$and = [...(query.$and || []), { dataset: src.slice('dataset:'.length) }, ...NOT_ASKED]
         } else if (src === 'batch') {
             query.$and = [...(query.$and || []), { $or: [{ batchId: { $ne: null } }, { wordBatchId: { $ne: null } }, { dataset: { $ne: null } }] }]
         }
@@ -235,9 +251,9 @@ class wordManageController extends controller {
      */
     async getWordSources(req, res, next) {
         const [users, perDataset] = await Promise.all([
-            Word.countDocuments({ approved: false, batchId: null, wordBatchId: null, dataset: null }),
+            Word.countDocuments({ approved: false, ...ASKED_BY_USERS }),
             Word.aggregate([
-                { $match: { approved: false, dataset: { $ne: null } } },
+                { $match: { approved: false, dataset: { $ne: null }, $and: NOT_ASKED } },
                 { $group: { _id: '$dataset', waiting: { $sum: 1 } } },
                 { $sort: { _id: 1 } },
             ]),
