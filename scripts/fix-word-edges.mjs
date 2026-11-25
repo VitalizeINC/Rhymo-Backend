@@ -65,6 +65,11 @@ for (const w of bad) {
         if (!target.approved && askers.length) {
             await Words.updateOne({ _id: target._id }, { $addToSet: { requestedBy: { $each: askers } } });
         }
+        // The admin already approved the copy: that approval is for this word.
+        if (w.approved && !target.approved) {
+            await Words.updateOne({ _id: target._id }, { $set: { approved: true } });
+            console.log(`  approved ${JSON.stringify(target.fullWord)}, as its copy was`);
+        }
         await Words.deleteOne({ _id: w._id });
     } else {
         const withHalf = cleanEnds(w.fullWordWithNimFaseleh || w.fullWord);
