@@ -7,6 +7,7 @@ import englishRhymeController from './englishRhymeController.js';
 import WordBank from '../../../models/wordBank.js';
 import mongoose from 'mongoose';
 import { visibleWords } from '../services/wordVisibility.js';
+import { cleanEnds } from '../../../helpers/wordText.js';
 
 const longVowels = ['آ', 'و', 'ی', 'ا']
 const shortVowels = [String.fromCharCode(1614), String.fromCharCode(1615), String.fromCharCode(1616)]
@@ -56,7 +57,8 @@ class wordManageController extends controller {
         // fullWord must be unique, so editing a word into the spelling of
         // another word fails. Find that other word first and say so plainly;
         // the admin panel shows this text as it is.
-        if (typeof req.body.fullWord !== 'string' || !req.body.fullWord.trim()) {
+        req.body.fullWord = cleanEnds(req.body.fullWord)
+        if (typeof req.body.fullWord !== 'string' || !req.body.fullWord) {
             return res.status(400).json("متن کلمه خالی است")
         }
         const sameSpelling = await Word.findOne({
@@ -300,6 +302,13 @@ class wordManageController extends controller {
     }
     async saveWords(req, res, next) {
         let newWordParts = req.body.data
+        // No space or half-space at the start or end of a stored word.
+        req.body.s = cleanEnds(req.body.s)
+        if (Array.isArray(newWordParts)) {
+            for (const item of newWordParts) {
+                if (item && typeof item.part === 'string') item.part = cleanEnds(item.part)
+            }
+        }
 
         // Check the whole request before writing anything. Without this, a part
         // whose analysis came back empty reached the database and failed there
@@ -312,7 +321,7 @@ class wordManageController extends controller {
         }
         const filled = (a) => Array.isArray(a) && a.length > 0 && a.every(x => typeof x === 'string' && x.trim() !== '')
         for (const item of newWordParts) {
-            if (!item || typeof item.part !== 'string') {
+            if (!item || typeof item.part !== 'string' || !item.part) {
                 return res.status(400).json({ error: 'A part of the word is missing', code: 'BAD_PART' })
             }
             if (item.db) {

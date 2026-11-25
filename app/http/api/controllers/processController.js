@@ -2,6 +2,7 @@ import controller from './controller.js';
 import Word from '../../../models/word.js';
 import englishRhymeController from './englishRhymeController.js';
 import { shareWithRequester } from '../services/wordVisibility.js';
+import { cleanEnds } from '../../../helpers/wordText.js';
 
 // Fatha, damma, kasra, tashdid, sukun, tanvin.
 const MARKS = /[ً-ْ]/
@@ -39,10 +40,12 @@ class processController extends controller {
         if (req.body.lang === 'en') {
             return englishRhymeController.getWordDetails(req, res, next)
         }
-        let modalTitle = req.body.string
+        // No space or half-space at the start or end of the word or of its
+        // parts. Spaces inside are kept as typed.
+        let modalTitle = cleanEnds(String(req.body.string || ''))
         // let {string, tashdid} = this.stringBootstrap(modalTitle)
         let string = modalTitle
-        let stringParts = string.split(' ')
+        let stringParts = string.split(' ').map(cleanEnds)
         let totalParts = []
         let totalPhonemes = []
         let result = []

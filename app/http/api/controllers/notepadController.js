@@ -5,6 +5,7 @@ import Note from '../../../models/note.js';
 import Folder from '../../../models/folder.js';
 import mongoose from 'mongoose';
 import { visibleWords, shareWithRequester } from '../services/wordVisibility.js';
+import { cleanEnds } from '../../../helpers/wordText.js';
 
 const ZWNJ = String.fromCharCode(0x200C);
 
@@ -76,7 +77,7 @@ class notepadController extends controller {
      */
     async resolveWord(req, res, next) {
         try {
-            const raw = (req.query.string || '').trim();
+            const raw = cleanEnds(String(req.query.string || ''));
             if (!raw) {
                 return res.status(400).json({ error: 'string is required' });
             }
