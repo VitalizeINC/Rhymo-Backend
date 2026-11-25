@@ -56,4 +56,27 @@ export function visibleWords(req, query = {}) {
     return parts.length === 1 ? parts[0] : { $and: parts };
 }
 
-export default { visibleWordClause, visibleWords };
+/**
+ * Let this person see a word that is still waiting for approval.
+ *
+ * Used when someone asks for a word that is already stored but hidden from
+ * them (for example one from an admin batch upload). Without this the word was
+ * found when they tried to add it, but every later step (rhymes, word bank,
+ * syllables) said "Word not found", because those apply the rule above.
+ * Accepts one word or a list. Never fails the request.
+ */
+export async function shareWithRequester(Word, words, req) {
+    const userId = req && req.user ? req.user.id : null;
+    if (!userId || !words) return;
+    const ids = (Array.isArray(words) ? words : [words])
+        .filter((w) => w && !w.approved && !(w.user && String(w.user) === String(userId)))
+        .map((w) => w._id);
+    if (ids.length === 0) return;
+    try {
+        await Word.updateMany({ _id: { $in: ids } }, { $addToSet: { requestedBy: userId } });
+    } catch (e) {
+        console.error('shareWithRequester failed:', e.message);
+    }
+}
+
+export default { visibleWordClause, visibleWords, shareWithRequester };

@@ -4,7 +4,7 @@ import WordBank from '../../../models/wordBank.js';
 import Note from '../../../models/note.js';
 import Folder from '../../../models/folder.js';
 import mongoose from 'mongoose';
-import { visibleWords } from '../services/wordVisibility.js';
+import { visibleWords, shareWithRequester } from '../services/wordVisibility.js';
 
 const ZWNJ = String.fromCharCode(0x200C);
 
@@ -105,12 +105,24 @@ class notepadController extends controller {
             }
 
             const forms = this.candidateForms(raw);
-            const matches = await Word.find(visibleWords(req, {
+            const query = {
                 lang: { $ne: 'en' },
                 $or: [{ word: { $in: forms } }, { fullWord: { $in: forms } }],
-            }))
-                .select('fullWord fullWordWithNimFaseleh word heja ava avaString hejaCounter')
-                .limit(25);
+            };
+            const fields = 'fullWord fullWordWithNimFaseleh word heja ava avaString hejaCounter approved user';
+            let matches = await Word.find(visibleWords(req, query)).select(fields).limit(25);
+
+            // Nothing this person can see, but the word may be stored and still
+            // waiting for approval. Before, that sent them into "add a word",
+            // which found the stored word, and then rhymes and the word bank
+            // answered "Word not found". Let them see it instead.
+            if (matches.length === 0 && req.user) {
+                const hidden = await Word.find({ ...query, approved: { $ne: true } }).select(fields).limit(25);
+                if (hidden.length > 0) {
+                    await shareWithRequester(Word, hidden, req);
+                    matches = hidden;
+                }
+            }
 
             // De-duplicate by vocalised spelling: the same fullWord should never
             // appear twice in the picker.

@@ -1,6 +1,10 @@
 import controller from './controller.js';
 import Word from '../../../models/word.js';
 import englishRhymeController from './englishRhymeController.js';
+import { shareWithRequester } from '../services/wordVisibility.js';
+
+// Fatha, damma, kasra, tashdid, sukun, tanvin.
+const MARKS = /[ً-ْ]/
 
 const longVowels = ['آ', 'و', 'ی', 'ا']
 const shortVowels = [String.fromCharCode(1614), String.fromCharCode(1615), String.fromCharCode(1616)]
@@ -8,7 +12,28 @@ const shortVowels = [String.fromCharCode(1614), String.fromCharCode(1615), Strin
 
 
 class processController extends controller {
-    
+
+    /**
+     * A stored Persian word with the same letters as `part`, for a part the
+     * writer typed without vowel marks. Only when the answer is clear: one
+     * stored spelling, or exactly one approved spelling among several. With
+     * two real readings (کشتی: kashti / koshti) it returns null and the
+     * writer adds the marks, as before.
+     */
+    async storedByLetters(part) {
+        if (!part || MARKS.test(part)) return null
+        const forms = [...new Set([part, part.replace(/‌/g, ' '), part.replace(/‌/g, '')])]
+        const found = await Word.find({ lang: { $ne: 'en' }, word: { $in: forms } })
+            .select('fullWord heja ava approved').limit(10)
+        const usable = found.filter((w) => Array.isArray(w.heja) && w.heja.length > 0
+            && Array.isArray(w.ava) && w.ava.length === w.heja.length)
+        const spellings = new Map()
+        for (const w of usable) if (!spellings.has(w.fullWord)) spellings.set(w.fullWord, w)
+        if (spellings.size === 1) return [...spellings.values()][0]
+        const approved = [...spellings.values()].filter((w) => w.approved)
+        return approved.length === 1 ? approved[0] : null
+    }
+
     async getWordDetails(req, res, next) {
         // English requests are handled by the CMUdict-based engine.
         if (req.body.lang === 'en') {
@@ -40,6 +65,11 @@ class processController extends controller {
                 phonemes: []
             }
             let checkInDB = await Word.findOne({ fullWord: stringParts[i] })
+            // A part typed without vowel marks ("بچه") is not found by its exact
+            // spelling, and the analyser cannot split it without marks: it
+            // returned one wrong syllable or none at all, and saving failed.
+            // Use the stored word with the same letters when there is only one.
+            if (!checkInDB) checkInDB = await this.storedByLetters(stringParts[i])
             if (checkInDB) {
                 schema.db = true
                 schema.id = checkInDB._id
@@ -96,8 +126,13 @@ class processController extends controller {
             }
             fullWord = modalTitle.replace(/\u200C/g, " ")
             let check = await Word.findOne({ fullWord: modalTitle })
+            if (check) {
+                // Stored but maybe still waiting for approval: let this person
+                // use it, or rhymes and the word bank answer "Word not found".
+                await shareWithRequester(Word, check, req)
+            }
             if (!check) {
-                
+
                 let word = this.solidWord(modalTitle)
                 let newWord = new Word({
                     fullWord: modalTitle,
@@ -109,7 +144,10 @@ class processController extends controller {
                     hejaCounter: totalPhonemes.length,
                     spacePositions: spacePositions,
                     nimFaselehPositions: nimFaselehPositions,
-                    level: 1 // Default level
+                    level: 1, // Default level
+                    // Who added it. A word with no owner stays hidden from
+                    // everyone until approved, the person who added it too.
+                    user: req.user ? req.user.id : null
                 })
                 await newWord.save()
                 totalId = newWord._id
