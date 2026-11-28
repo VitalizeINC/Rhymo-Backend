@@ -9,6 +9,28 @@ import mongoose from 'mongoose';
 import { visibleWords } from '../services/wordVisibility.js';
 import { cleanEnds } from '../../../helpers/wordText.js';
 
+// Vowel marks (fatha, kasra, damma, tanvin, sukun, shadda ...) and tatweel.
+const MARKS = /[\u064B-\u065F\u0670\u0640]/g
+const escapeRegex = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * Conditions for an exact search. The typed text may or may not carry vowel
+ * marks, and may use a space or a half-space where the stored word uses the
+ * other, so each spelling is tried. Case does not matter (English words).
+ */
+function exactWordMatch(raw) {
+    const typed = cleanEnds(raw)
+    const spellings = new Set()
+    for (const t of [typed, typed.replace(/\u200C/g, ' '), typed.replace(/ /g, '\u200C')]) spellings.add(t)
+    const plain = new Set([...spellings].map(t => t.replace(MARKS, '')))
+    const exactly = (set) => ({ $in: [...set].map(t => new RegExp(`^${escapeRegex(t)}$`, 'i')) })
+    return [
+        { word: exactly(plain) },
+        { fullWord: exactly(spellings) },
+        { fullWordWithNimFaseleh: exactly(spellings) },
+    ]
+}
+
 const longVowels = ['آ', 'و', 'ی', 'ا']
 const shortVowels = [String.fromCharCode(1614), String.fromCharCode(1615), String.fromCharCode(1616)]
 
@@ -196,6 +218,11 @@ class wordManageController extends controller {
                     { word: {$regex: search, $options: 'i'} },
                     { ava: searchPhonemes }
                 ]
+            } else if (req.query.exact === '1') {
+                // Exact: the whole word, not words that contain it. «به» finds
+                // «به» and «بِه», never «بهار» or «خوبه». Checked against the
+                // plain word (no vowel marks) and the full word as stored.
+                query.$and = [...(query.$and || []), { $or: exactWordMatch(search) }]
             } else {
                 // Regular text search in word field only
                 query.word = {$regex: search, $options: 'i'}
